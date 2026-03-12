@@ -7,3 +7,8 @@ coverage
 pnpm-lock.yaml
 apps/*/node_modules
 apps/*/dist
+.env
+.env.*
+apps/*/.env
+apps/*/.env.*
+!apps/*/.env.example
