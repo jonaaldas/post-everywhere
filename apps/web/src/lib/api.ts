@@ -4,6 +4,11 @@ export interface ApiStatus {
   uptimeSeconds: number
   timestamp: string
   routes: string[]
+  database: {
+    provider: 'turso'
+    connected: boolean
+    error?: string
+  }
 }
 
 export interface ChannelStatus {

@@ -169,7 +169,9 @@ const activeChannel = computed(() =>
             </span>
             <span v-else>
               Uptime {{ status?.uptimeSeconds ?? 0 }}s, routes
-              {{ status?.routes.join(', ') }}.
+              {{ status?.routes.join(', ') }}, database
+              {{ status?.database.connected ? 'connected' : 'unavailable' }}
+              on {{ status?.database.provider }}.
             </span>
           </p>
         </div>

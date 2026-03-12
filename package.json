@@ -8,5 +8,8 @@
     "dev:api": "pnpm --filter @post-everywhere/api dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck"
+  },
+  "devDependencies": {
+    "@types/node": "^24.12.0"
   }
 }
