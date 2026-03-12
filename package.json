@@ -1,0 +1,12 @@
+{
+  "name": "post-everywhere",
+  "private": true,
+  "packageManager": "pnpm@10.29.3",
+  "scripts": {
+    "dev": "pnpm --parallel --filter @post-everywhere/api --filter @post-everywhere/web dev",
+    "dev:web": "pnpm --filter @post-everywhere/web dev",
+    "dev:api": "pnpm --filter @post-everywhere/api dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck"
+  }
+}
