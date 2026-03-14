@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Hono } from 'hono';
 
 vi.mock('../../env.js', () => ({
-  env: { jwtSecret: 'test-secret-key' },
+  env: { jwtSecret: 'test-secret-key', encryptionKey: '0'.repeat(64) },
 }));
 
 const mockListPosts = vi.fn();
@@ -15,6 +15,24 @@ vi.mock('../../db/posts/posts.js', () => ({
   getPost: (...args: unknown[]) => mockGetPost(...args),
   updatePostStatus: (...args: unknown[]) => mockUpdatePostStatus(...args),
   updatePostContent: (...args: unknown[]) => mockUpdatePostContent(...args),
+}));
+
+const mockGetSocialConnection = vi.fn();
+
+vi.mock('../../db/social/social.js', () => ({
+  getSocialConnection: (...args: unknown[]) => mockGetSocialConnection(...args),
+}));
+
+const mockDecrypt = vi.fn((v: string) => v.replace('enc:', ''));
+
+vi.mock('../../lib/crypto/crypto.js', () => ({
+  decrypt: (v: string) => mockDecrypt(v),
+}));
+
+const mockPublish = vi.fn();
+
+vi.mock('../../lib/publisher/index.js', () => ({
+  getPublisher: () => ({ publish: mockPublish }),
 }));
 
 import { posts } from './posts.js';
@@ -153,11 +171,58 @@ describe('POST /api/posts/:id/publish', () => {
     expect(res.status).toBe(400);
   });
 
-  it('returns 501 for now (publishing implemented in Phase 4)', async () => {
+  it('returns 400 when platform not connected', async () => {
     mockGetPost.mockResolvedValue({ id: 'p1', userId: 'u1', status: 'approved', platform: 'twitter' });
+    mockGetSocialConnection.mockResolvedValue(undefined);
     const app = createApp();
     const res = await app.request('/api/posts/p1/publish', { method: 'POST' });
-    // Phase 3 stubs publish — will return 501 until Phase 4
-    expect(res.status).toBe(501);
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain('not connected');
+  });
+
+  it('publishes successfully and updates status to posted', async () => {
+    mockGetPost.mockResolvedValue({ id: 'p1', userId: 'u1', status: 'approved', platform: 'twitter', content: 'Hello!' });
+    mockGetSocialConnection.mockResolvedValue({ accessToken: 'enc:real-token', tokenExpiresAt: null });
+    mockPublish.mockResolvedValue({ success: true, platformPostId: 'tw-999' });
+    mockUpdatePostStatus.mockResolvedValue({ id: 'p1', status: 'posted' });
+
+    const app = createApp();
+    const res = await app.request('/api/posts/p1/publish', { method: 'POST' });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.status).toBe('posted');
+    expect(mockPublish).toHaveBeenCalledWith('Hello!', 'real-token');
+    expect(mockUpdatePostStatus).toHaveBeenCalledWith('p1', 'posted');
+  });
+
+  it('returns 429 on rate limit', async () => {
+    mockGetPost.mockResolvedValue({ id: 'p1', userId: 'u1', status: 'approved', platform: 'twitter', content: 'Hi' });
+    mockGetSocialConnection.mockResolvedValue({ accessToken: 'enc:token', tokenExpiresAt: null });
+    mockPublish.mockResolvedValue({ success: false, error: 'Rate limit exceeded' });
+
+    const app = createApp();
+    const res = await app.request('/api/posts/p1/publish', { method: 'POST' });
+    expect(res.status).toBe(429);
+  });
+
+  it('returns 401 on expired token', async () => {
+    mockGetPost.mockResolvedValue({ id: 'p1', userId: 'u1', status: 'approved', platform: 'twitter', content: 'Hi' });
+    mockGetSocialConnection.mockResolvedValue({ accessToken: 'enc:token', tokenExpiresAt: null });
+    mockPublish.mockResolvedValue({ success: false, error: 'expired token — please reconnect' });
+
+    const app = createApp();
+    const res = await app.request('/api/posts/p1/publish', { method: 'POST' });
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 500 on generic failure', async () => {
+    mockGetPost.mockResolvedValue({ id: 'p1', userId: 'u1', status: 'approved', platform: 'twitter', content: 'Hi' });
+    mockGetSocialConnection.mockResolvedValue({ accessToken: 'enc:token', tokenExpiresAt: null });
+    mockPublish.mockResolvedValue({ success: false, error: 'Something broke' });
+
+    const app = createApp();
+    const res = await app.request('/api/posts/p1/publish', { method: 'POST' });
+    expect(res.status).toBe(500);
   });
 });

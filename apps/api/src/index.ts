@@ -12,6 +12,7 @@ import { auth } from './routes/auth/auth.js';
 import { github } from './routes/github/github.js';
 import { webhooks } from './routes/webhooks/webhooks.js';
 import { posts as postsRoutes } from './routes/posts/posts.js';
+import { social, socialCallback } from './routes/social/social.js';
 
 const app = new Hono();
 
@@ -20,6 +21,8 @@ app.use('/api/*', cors());
 // Public routes (no auth)
 app.route('/api/auth', auth);
 app.route('/api/webhooks', webhooks);
+// Social OAuth callbacks are public (user redirected from provider, no JWT)
+app.route('/api/social', socialCallback);
 
 app.get('/api/status', async (c) => {
   const database = await pingDatabase();
@@ -39,6 +42,7 @@ app.use('/api/*', jwtAuth);
 
 app.route('/api/github', github);
 app.route('/api/posts', postsRoutes);
+app.route('/api/social', social);
 
 app.get('/api/channels', async (c) => {
   try {

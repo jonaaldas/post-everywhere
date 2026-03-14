@@ -1,6 +1,9 @@
 import { Hono } from 'hono';
 
 import { listPosts, getPost, updatePostStatus, updatePostContent } from '../../db/posts/posts.js';
+import { getSocialConnection } from '../../db/social/social.js';
+import { decrypt } from '../../lib/crypto/crypto.js';
+import { getPublisher } from '../../lib/publisher/index.js';
 
 const posts = new Hono();
 
@@ -68,8 +71,27 @@ posts.post('/:id/publish', async (c) => {
     return c.json({ error: 'post must be approved before publishing' }, 400);
   }
 
-  // Phase 4 will implement actual publishing
-  return c.json({ error: 'publishing not yet implemented' }, 501);
+  const connection = await getSocialConnection(userId, post.platform);
+  if (!connection) {
+    return c.json({ error: `${post.platform} not connected` }, 400);
+  }
+
+  const accessToken = decrypt(connection.accessToken);
+  const publisher = getPublisher(post.platform);
+  const result = await publisher.publish(post.content, accessToken);
+
+  if (!result.success) {
+    if (result.error?.toLowerCase().includes('rate limit')) {
+      return c.json({ error: result.error }, 429);
+    }
+    if (result.error?.toLowerCase().includes('expired') || result.error?.toLowerCase().includes('reconnect')) {
+      return c.json({ error: result.error }, 401);
+    }
+    return c.json({ error: result.error ?? 'Publishing failed' }, 500);
+  }
+
+  const updated = await updatePostStatus(post.id, 'posted');
+  return c.json(updated);
 });
 
 export { posts };

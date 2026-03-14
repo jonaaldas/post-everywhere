@@ -39,6 +39,18 @@ export function createTestDb() {
       created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP)
     );
 
+    CREATE TABLE social_connections (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id),
+      platform TEXT NOT NULL,
+      access_token TEXT NOT NULL,
+      refresh_token TEXT,
+      platform_user_id TEXT NOT NULL,
+      platform_username TEXT NOT NULL,
+      token_expires_at TEXT,
+      created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP)
+    );
+
     CREATE TABLE posts (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id),

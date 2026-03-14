@@ -33,4 +33,9 @@ export const env = {
   encryptionKey: getRequiredEnv('ENCRYPTION_KEY'), // 32-byte hex string for AES-256-GCM
   appBaseUrl: getRequiredEnv('APP_BASE_URL'),
   anthropicApiKey: getRequiredEnv('ANTHROPIC_API_KEY'),
+  // Phase 4: Social OAuth (optional — features disabled when absent)
+  twitterClientId: process.env.TWITTER_CLIENT_ID?.trim() ?? '',
+  twitterClientSecret: process.env.TWITTER_CLIENT_SECRET?.trim() ?? '',
+  linkedinClientId: process.env.LINKEDIN_CLIENT_ID?.trim() ?? '',
+  linkedinClientSecret: process.env.LINKEDIN_CLIENT_SECRET?.trim() ?? '',
 } as const;

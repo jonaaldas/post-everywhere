@@ -87,3 +87,26 @@ export const posts = sqliteTable('posts', {
 
 export type Post = typeof posts.$inferSelect;
 export type NewPost = typeof posts.$inferInsert;
+
+// --- Phase 4: Social Connections ---
+
+export const socialPlatforms = ['twitter', 'linkedin'] as const;
+
+export const socialConnections = sqliteTable('social_connections', {
+  id: text('id').primaryKey(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id),
+  platform: text('platform', { enum: socialPlatforms }).notNull(),
+  accessToken: text('access_token').notNull(), // encrypted
+  refreshToken: text('refresh_token'), // encrypted, nullable
+  platformUserId: text('platform_user_id').notNull(),
+  platformUsername: text('platform_username').notNull(),
+  tokenExpiresAt: text('token_expires_at'),
+  createdAt: text('created_at')
+    .notNull()
+    .default(sql`(CURRENT_TIMESTAMP)`),
+});
+
+export type SocialConnection = typeof socialConnections.$inferSelect;
+export type NewSocialConnection = typeof socialConnections.$inferInsert;
