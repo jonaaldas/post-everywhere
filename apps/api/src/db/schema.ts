@@ -61,3 +61,29 @@ export const watchedRepos = sqliteTable('watched_repos', {
 });
 
 export type WatchedRepo = typeof watchedRepos.$inferSelect;
+
+// --- Phase 3: Posts ---
+
+export const postPlatforms = ['twitter', 'linkedin'] as const;
+export const postStatuses = ['pending', 'approved', 'posted', 'rejected'] as const;
+
+export const posts = sqliteTable('posts', {
+  id: text('id').primaryKey(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id),
+  repoFullName: text('repo_full_name').notNull(),
+  prNumber: integer('pr_number').notNull(),
+  prTitle: text('pr_title').notNull(),
+  prDescription: text('pr_description'),
+  platform: text('platform', { enum: postPlatforms }).notNull(),
+  content: text('content').notNull(),
+  status: text('status', { enum: postStatuses }).notNull().default('pending'),
+  postedAt: text('posted_at'),
+  createdAt: text('created_at')
+    .notNull()
+    .default(sql`(CURRENT_TIMESTAMP)`),
+});
+
+export type Post = typeof posts.$inferSelect;
+export type NewPost = typeof posts.$inferInsert;

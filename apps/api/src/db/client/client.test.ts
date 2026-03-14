@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 
 // Mock env so client.ts doesn't throw on missing env vars
-vi.mock('../env.js', () => ({
+vi.mock('../../env.js', () => ({
   env: {
     tursoDatabaseUrl: 'file::memory:',
     tursoAuthToken: 'fake-token',

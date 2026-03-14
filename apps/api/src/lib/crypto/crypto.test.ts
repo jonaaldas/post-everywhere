@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('../env.js', () => ({
+vi.mock('../../env.js', () => ({
   env: {
     // 32 bytes = 64 hex chars
     encryptionKey: 'a'.repeat(64),

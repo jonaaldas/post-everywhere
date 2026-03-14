@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { Hono } from 'hono';
 import { sign } from 'hono/jwt';
 
-vi.mock('../env.js', () => ({
+vi.mock('../../env.js', () => ({
   env: { jwtSecret: 'test-secret-key' },
 }));
 

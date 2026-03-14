@@ -2,8 +2,8 @@ import { Hono } from 'hono';
 import { sign } from 'hono/jwt';
 import bcrypt from 'bcryptjs';
 
-import { env } from '../env.js';
-import { countUsers, createUser, findByEmail } from '../db/users.js';
+import { env } from '../../env.js';
+import { countUsers, createUser, findByEmail } from '../../db/users/users.js';
 
 const auth = new Hono();
 

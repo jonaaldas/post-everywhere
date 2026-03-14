@@ -65,6 +65,15 @@ apps/
 - **Database**: Turso (LibSQL) with Drizzle ORM. Schema in `apps/api/src/db/schema.ts`. The channels endpoint auto-seeds default data on first request if the table is empty.
 - **API env**: `.env` in `apps/api/` — requires `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN`.
 
+## Development Workflow (TDD)
+
+Follow strict TDD for every phase/feature:
+1. **Write tests first** — unit tests for functions, route tests for endpoints
+2. **Run tests — confirm they fail** (`pnpm test:api`)
+3. **Write the implementation** to make tests pass
+4. **Run tests — confirm they pass** before moving to the next step
+5. DB function tests use in-memory SQLite (better-sqlite3 via `src/test/db-helper.ts`); route/lib tests use `vi.mock`
+
 ## TypeScript
 
 - Base config in root `tsconfig.base.json` (ES2022, strict, bundler resolution)

@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { createTestDb } from '../test/db-helper.js';
-import { users } from './schema.js';
+import { createTestDb } from '../../test/db-helper.js';
+import { users } from '../schema.js';
 
 let testDb: ReturnType<typeof createTestDb>;
 
-vi.mock('./client.js', () => ({
+vi.mock('../client/client.js', () => ({
   get db() {
     return testDb;
   },

@@ -32,4 +32,5 @@ export const env = {
   githubWebhookSecret: getRequiredEnv('GITHUB_WEBHOOK_SECRET'),
   encryptionKey: getRequiredEnv('ENCRYPTION_KEY'), // 32-byte hex string for AES-256-GCM
   appBaseUrl: getRequiredEnv('APP_BASE_URL'),
+  anthropicApiKey: getRequiredEnv('ANTHROPIC_API_KEY'),
 } as const;

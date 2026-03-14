@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 
-import { db } from './client.js';
-import { users, type User } from './schema.js';
+import { db } from '../client/client.js';
+import { users, type User } from '../schema.js';
 
 export async function createUser(id: string, email: string, passwordHash: string): Promise<User> {
   const [user] = await db.insert(users).values({ id, email, passwordHash }).returning();

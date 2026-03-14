@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
 
-import { encrypt, decrypt } from '../lib/crypto.js';
-import { verifyPat, listUserRepos, createWebhook, deleteWebhook } from '../lib/github.js';
-import { saveConnection, getConnection, addWatchedRepo, getWatchedRepo, removeWatchedRepo, listWatchedRepos } from '../db/github.js';
+import { encrypt, decrypt } from '../../lib/crypto/crypto.js';
+import { verifyPat, listUserRepos, createWebhook, deleteWebhook } from '../../lib/github/github.js';
+import { saveConnection, getConnection, addWatchedRepo, getWatchedRepo, removeWatchedRepo, listWatchedRepos } from '../../db/github/github.js';
 
 const github = new Hono();
 

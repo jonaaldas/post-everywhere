@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock env
-vi.mock('../env.js', () => ({
+vi.mock('../../env.js', () => ({
   env: {
     appBaseUrl: 'https://app.test.com',
     githubWebhookSecret: 'whsec_test123',

@@ -1,6 +1,6 @@
 import { Octokit } from 'octokit';
 
-import { env } from '../env.js';
+import { env } from '../../env.js';
 
 export function createOctokit(pat: string) {
   return new Octokit({ auth: pat });

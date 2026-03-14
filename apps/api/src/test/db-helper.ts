@@ -38,6 +38,20 @@ export function createTestDb() {
       active INTEGER NOT NULL DEFAULT 1,
       created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP)
     );
+
+    CREATE TABLE posts (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id),
+      repo_full_name TEXT NOT NULL,
+      pr_number INTEGER NOT NULL,
+      pr_title TEXT NOT NULL,
+      pr_description TEXT,
+      platform TEXT NOT NULL,
+      content TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      posted_at TEXT,
+      created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP)
+    );
   `);
 
   return drizzle(sqlite, { schema });

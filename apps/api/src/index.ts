@@ -4,19 +4,22 @@ import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 
-import { listChannels } from './db/channels.js';
-import { pingDatabase } from './db/client.js';
+import { listChannels } from './db/channels/channels.js';
+import { pingDatabase } from './db/client/client.js';
 import { env } from './env.js';
-import { jwtAuth } from './middleware/auth.js';
-import { auth } from './routes/auth.js';
-import { github } from './routes/github.js';
+import { jwtAuth } from './middleware/auth/auth.js';
+import { auth } from './routes/auth/auth.js';
+import { github } from './routes/github/github.js';
+import { webhooks } from './routes/webhooks/webhooks.js';
+import { posts as postsRoutes } from './routes/posts/posts.js';
 
 const app = new Hono();
 
 app.use('/api/*', cors());
 
-// Public routes
+// Public routes (no auth)
 app.route('/api/auth', auth);
+app.route('/api/webhooks', webhooks);
 
 app.get('/api/status', async (c) => {
   const database = await pingDatabase();
@@ -35,6 +38,7 @@ app.get('/api/status', async (c) => {
 app.use('/api/*', jwtAuth);
 
 app.route('/api/github', github);
+app.route('/api/posts', postsRoutes);
 
 app.get('/api/channels', async (c) => {
   try {

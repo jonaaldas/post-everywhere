@@ -1,7 +1,7 @@
 import { asc } from 'drizzle-orm';
 
-import { db } from './client.js';
-import { channels, type NewChannel } from './schema.js';
+import { db } from '../client/client.js';
+import { channels, type NewChannel } from '../schema.js';
 
 const defaultChannels: NewChannel[] = [
   { id: 'web', label: 'Web', reach: '18k readers', state: 'ready', sortOrder: 0 },

@@ -1,7 +1,7 @@
 import { and, eq } from 'drizzle-orm';
 
-import { db } from './client.js';
-import { githubConnections, watchedRepos, type GithubConnection, type WatchedRepo } from './schema.js';
+import { db } from '../client/client.js';
+import { githubConnections, watchedRepos, type GithubConnection, type WatchedRepo } from '../schema.js';
 
 // --- GitHub Connections ---
 

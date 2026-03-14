@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Hono } from 'hono';
 
 // Mock env
-vi.mock('../env.js', () => ({
+vi.mock('../../env.js', () => ({
   env: {
     jwtSecret: 'test-secret-key',
     encryptionKey: 'a'.repeat(64),
@@ -15,7 +15,7 @@ vi.mock('../env.js', () => ({
 const mockEncrypt = vi.fn().mockReturnValue('encrypted-pat');
 const mockDecrypt = vi.fn().mockReturnValue('ghp_decrypted_token');
 
-vi.mock('../lib/crypto.js', () => ({
+vi.mock('../../lib/crypto/crypto.js', () => ({
   encrypt: (...args: unknown[]) => mockEncrypt(...args),
   decrypt: (...args: unknown[]) => mockDecrypt(...args),
 }));
@@ -26,7 +26,7 @@ const mockListUserRepos = vi.fn();
 const mockCreateWebhook = vi.fn();
 const mockDeleteWebhook = vi.fn();
 
-vi.mock('../lib/github.js', () => ({
+vi.mock('../../lib/github/github.js', () => ({
   verifyPat: (...args: unknown[]) => mockVerifyPat(...args),
   listUserRepos: (...args: unknown[]) => mockListUserRepos(...args),
   createWebhook: (...args: unknown[]) => mockCreateWebhook(...args),
@@ -41,7 +41,7 @@ const mockGetWatchedRepo = vi.fn();
 const mockRemoveWatchedRepo = vi.fn();
 const mockListWatchedRepos = vi.fn();
 
-vi.mock('../db/github.js', () => ({
+vi.mock('../../db/github/github.js', () => ({
   saveConnection: (...args: unknown[]) => mockSaveConnection(...args),
   getConnection: (...args: unknown[]) => mockGetConnection(...args),
   addWatchedRepo: (...args: unknown[]) => mockAddWatchedRepo(...args),

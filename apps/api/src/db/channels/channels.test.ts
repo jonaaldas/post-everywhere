@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { createTestDb } from '../test/db-helper.js';
+import { createTestDb } from '../../test/db-helper.js';
 
 let testDb: ReturnType<typeof createTestDb>;
 
-vi.mock('./client.js', () => ({
+vi.mock('../client/client.js', () => ({
   get db() {
     return testDb;
   },

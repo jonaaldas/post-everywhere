@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Hono } from 'hono';
 
 // Mock env
-vi.mock('../env.js', () => ({
+vi.mock('../../env.js', () => ({
   env: { jwtSecret: 'test-secret-key' },
 }));
 
@@ -11,7 +11,7 @@ const mockCountUsers = vi.fn();
 const mockCreateUser = vi.fn();
 const mockFindByEmail = vi.fn();
 
-vi.mock('../db/users.js', () => ({
+vi.mock('../../db/users/users.js', () => ({
   countUsers: (...args: unknown[]) => mockCountUsers(...args),
   createUser: (...args: unknown[]) => mockCreateUser(...args),
   findByEmail: (...args: unknown[]) => mockFindByEmail(...args),
