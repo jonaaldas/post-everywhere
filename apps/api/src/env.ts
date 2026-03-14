@@ -29,4 +29,7 @@ export const env = {
   tursoDatabaseUrl: getRequiredEnv('TURSO_DATABASE_URL'),
   tursoAuthToken: getRequiredEnv('TURSO_AUTH_TOKEN'),
   jwtSecret: getRequiredEnv('JWT_SECRET'),
+  githubWebhookSecret: getRequiredEnv('GITHUB_WEBHOOK_SECRET'),
+  encryptionKey: getRequiredEnv('ENCRYPTION_KEY'), // 32-byte hex string for AES-256-GCM
+  appBaseUrl: getRequiredEnv('APP_BASE_URL'),
 } as const;

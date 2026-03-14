@@ -30,3 +30,34 @@ export const users = sqliteTable('users', {
 
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
+
+// --- Phase 2: GitHub ---
+
+export const githubConnections = sqliteTable('github_connections', {
+  id: text('id').primaryKey(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id),
+  personalAccessToken: text('personal_access_token').notNull(), // encrypted
+  githubUsername: text('github_username').notNull(),
+  createdAt: text('created_at')
+    .notNull()
+    .default(sql`(CURRENT_TIMESTAMP)`),
+});
+
+export type GithubConnection = typeof githubConnections.$inferSelect;
+
+export const watchedRepos = sqliteTable('watched_repos', {
+  id: text('id').primaryKey(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id),
+  repoFullName: text('repo_full_name').notNull(),
+  webhookId: text('webhook_id'),
+  active: integer('active').notNull().default(1),
+  createdAt: text('created_at')
+    .notNull()
+    .default(sql`(CURRENT_TIMESTAMP)`),
+});
+
+export type WatchedRepo = typeof watchedRepos.$inferSelect;

@@ -9,6 +9,7 @@ import { pingDatabase } from './db/client.js';
 import { env } from './env.js';
 import { jwtAuth } from './middleware/auth.js';
 import { auth } from './routes/auth.js';
+import { github } from './routes/github.js';
 
 const app = new Hono();
 
@@ -32,6 +33,8 @@ app.get('/api/status', async (c) => {
 
 // Protected routes — everything below requires JWT
 app.use('/api/*', jwtAuth);
+
+app.route('/api/github', github);
 
 app.get('/api/channels', async (c) => {
   try {
