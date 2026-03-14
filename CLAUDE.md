@@ -20,14 +20,17 @@ pnpm dev:web          # vite on port 5173, proxies /api → :8787
 pnpm build            # builds both apps
 pnpm typecheck        # typechecks both apps
 
+# Testing (vitest)
+pnpm test             # run all tests
+pnpm test:api         # API tests only
+pnpm test:web         # web tests only
+
 # Database (run from apps/api/)
 pnpm db:generate      # generate Drizzle migrations
 pnpm db:migrate       # run migrations
 pnpm db:push          # push schema directly (no migration file)
 pnpm db:studio        # open Drizzle Studio
 ```
-
-No test framework is configured.
 
 ## Architecture
 

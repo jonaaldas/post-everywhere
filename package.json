@@ -7,7 +7,13 @@
     "dev:web": "pnpm --filter @post-everywhere/web dev",
     "dev:api": "pnpm --filter @post-everywhere/api dev",
     "build": "pnpm -r build",
+    "test": "pnpm -r --no-bail test",
+    "test:api": "pnpm --filter @post-everywhere/api test",
+    "test:web": "pnpm --filter @post-everywhere/web test",
     "typecheck": "pnpm -r typecheck"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["better-sqlite3", "esbuild"]
   },
   "devDependencies": {
     "@types/node": "^24.12.0"
