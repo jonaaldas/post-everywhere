@@ -28,4 +28,5 @@ export const env = {
   port: parsePort(process.env.PORT),
   tursoDatabaseUrl: getRequiredEnv('TURSO_DATABASE_URL'),
   tursoAuthToken: getRequiredEnv('TURSO_AUTH_TOKEN'),
+  jwtSecret: getRequiredEnv('JWT_SECRET'),
 } as const;
