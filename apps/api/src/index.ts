@@ -32,7 +32,7 @@ app.get('/api/status', async (c) => {
   const database = await pingDatabase();
 
   return c.json({
-    name: 'post-everywhere-api',
+    name: 'Post Everywhere API',
     version: '0.2.0',
     uptimeSeconds: Math.round(process.uptime()),
     timestamp: new Date().toISOString(),
