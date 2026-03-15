@@ -1,4 +1,4 @@
-if (process.env.NODE_ENV !== 'production') await import('dotenv/config');
+import 'dotenv/config';
 
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -70,7 +70,8 @@ app.get('/api/channels', async (c) => {
 });
 
 // In production, serve the Vue SPA static files
-const webDistPath = resolve(import.meta.dirname, '../../../web/dist');
+const webDistPath = resolve(import.meta.dirname, '../../../apps/web/dist');
+
 if (existsSync(webDistPath)) {
   app.use('*', serveStatic({ root: webDistPath }));
   // SPA fallback — serve index.html for client-side routing
@@ -79,7 +80,7 @@ if (existsSync(webDistPath)) {
   app.get('/', (c) => c.text('Post Everywhere API'));
 }
 
-const port = env.port;
+const port = env.port || 8787;
 
 serve(
   {
