@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import confetti from 'canvas-confetti';
 import { Github, Linkedin, Twitter, Check, X, Eye, EyeOff } from 'lucide-vue-next';
 import { toast } from 'vue-sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -68,6 +69,11 @@ const repoOptions = computed<RepoOption[]>(() =>
     description: r.description,
   }))
 );
+
+// Confetti on page load
+onMounted(() => {
+  confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
+});
 
 // Check GitHub connection on mount — don't render card content until done
 onMounted(async () => {
