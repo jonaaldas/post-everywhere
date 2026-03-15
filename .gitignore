@@ -4,7 +4,6 @@ dist
 .idea
 .vscode
 coverage
-pnpm-lock.yaml
 apps/*/node_modules
 apps/*/dist
 .env
