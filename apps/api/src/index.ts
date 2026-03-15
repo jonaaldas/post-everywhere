@@ -17,6 +17,7 @@ import { github } from './routes/github/github.js';
 import { webhooks } from './routes/webhooks/webhooks.js';
 import { posts as postsRoutes } from './routes/posts/posts.js';
 import { social, socialCallback } from './routes/social/social.js';
+import { webhookLogsRoute } from './routes/webhook-logs/webhook-logs.js';
 
 const app = new Hono();
 
@@ -52,6 +53,7 @@ app.get('/api/auth/me', (c) => {
 app.route('/api/github', github);
 app.route('/api/posts', postsRoutes);
 app.route('/api/social', social); // Protected social routes (JWT required)
+app.route('/api/webhook-logs', webhookLogsRoute);
 
 app.get('/api/channels', async (c) => {
   try {

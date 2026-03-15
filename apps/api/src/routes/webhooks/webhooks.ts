@@ -6,23 +6,46 @@ import { generatePostDrafts } from '../../lib/ai/ai.js';
 import { decrypt } from '../../lib/crypto/crypto.js';
 import { findWatchedRepoByName, getConnection } from '../../db/github/github.js';
 import { createPost } from '../../db/posts/posts.js';
+import { createWebhookLog } from '../../db/webhook-logs/webhook-logs.js';
 
 const webhooks = new Hono();
 
 webhooks.post('/github', async (c) => {
   const body = await c.req.text();
   const signature = c.req.header('x-hub-signature-256') || '';
+  const event = c.req.header('x-github-event') || 'unknown';
+
+  const headersObj: Record<string, string> = {};
+  c.req.raw.headers.forEach((value, key) => {
+    headersObj[key] = value;
+  });
+
+  const logAndRespond = async (responseBody: Record<string, unknown>, statusCode: number) => {
+    try {
+      await createWebhookLog({
+        id: crypto.randomUUID(),
+        eventType: event,
+        source: 'github',
+        requestHeaders: JSON.stringify(headersObj),
+        requestBody: body,
+        responseBody: JSON.stringify(responseBody),
+        statusCode,
+      });
+    } catch {
+      // Non-critical — don't fail the webhook response if logging fails
+    }
+    return c.json(responseBody, statusCode as 200);
+  };
 
   if (!verifyWebhookSignature(body, signature)) {
-    return c.json({ error: 'invalid signature' }, 401);
+    return logAndRespond({ error: 'invalid signature' }, 401);
   }
 
-  const event = c.req.header('x-github-event');
   const payload = JSON.parse(body);
 
   // Only handle merged PRs
   if (event !== 'pull_request' || payload.action !== 'closed' || !payload.pull_request?.merged) {
-    return c.json({ ok: true, skipped: true });
+    return logAndRespond({ ok: true, skipped: true }, 200);
   }
 
   const pr = payload.pull_request;
@@ -30,7 +53,7 @@ webhooks.post('/github', async (c) => {
 
   const watched = await findWatchedRepoByName(repoFullName);
   if (!watched) {
-    return c.json({ error: 'repo not watched' }, 404);
+    return logAndRespond({ error: 'repo not watched' }, 404);
   }
 
   // Fetch diff via Octokit
@@ -71,7 +94,7 @@ webhooks.post('/github', async (c) => {
     });
   }
 
-  return c.json({ ok: true, postsCreated: 2 }, 201);
+  return logAndRespond({ ok: true, postsCreated: 2 }, 201);
 });
 
 export { webhooks };

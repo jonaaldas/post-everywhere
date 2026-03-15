@@ -14,6 +14,7 @@
   "dependencies": {
     "@fontsource-variable/space-grotesk": "^5.2.10",
     "@pinia/colada": "^1.0.0",
+    "@tanstack/vue-table": "^8.21.3",
     "@vueuse/core": "^14.2.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

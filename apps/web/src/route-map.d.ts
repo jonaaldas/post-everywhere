@@ -68,6 +68,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/webhook-logs': RouteRecordInfo<
+      '/webhook-logs',
+      '/webhook-logs',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
   }
 
   /**
@@ -114,6 +121,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/settings.vue': {
       routes:
         | '/settings'
+      views:
+        | never
+    }
+    'src/pages/webhook-logs.vue': {
+      routes:
+        | '/webhook-logs'
       views:
         | never
     }

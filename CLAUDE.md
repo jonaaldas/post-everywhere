@@ -111,3 +111,15 @@ Update this section every time you finish a batch of work. Include date, what ch
 - Archive/Restore/Duplicate buttons on list cards and detail page (`apps/web/src/pages/posts/[id].vue`)
 - Platform badges: X (black), LinkedIn (blue) across all pages
 - Renamed all "twitter" display text to "X" (settings, posts list, detail, publish dialog)
+
+**Webhook Logs**
+- Added `webhookLogs` table to `apps/api/src/db/schema.ts`
+- Created `apps/api/src/db/webhook-logs/webhook-logs.ts` — `createWebhookLog()`, `listWebhookLogs()`
+- Created `apps/api/src/db/webhook-logs/webhook-logs.test.ts`
+- Updated `apps/api/src/routes/webhooks/webhooks.ts` to log every request (headers, body, response, status)
+- Created `apps/api/src/routes/webhook-logs/webhook-logs.ts` — `GET /api/webhook-logs` (JWT-protected)
+- Created `apps/api/src/routes/webhook-logs/webhook-logs.test.ts`
+- Mounted route in `apps/api/src/index.ts`
+- Updated `apps/api/src/test/db-helper.ts` with `webhook_logs` table
+- Created `apps/web/src/pages/webhook-logs.vue` — shadcn Table with status badges, click-to-expand JSON dialog
+- Installed shadcn-vue `table` component

@@ -64,6 +64,17 @@ export function createTestDb() {
       posted_at TEXT,
       created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP)
     );
+
+    CREATE TABLE webhook_logs (
+      id TEXT PRIMARY KEY,
+      event_type TEXT NOT NULL,
+      source TEXT NOT NULL,
+      request_headers TEXT NOT NULL,
+      request_body TEXT NOT NULL,
+      response_body TEXT NOT NULL,
+      status_code INTEGER NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP)
+    );
   `);
 
   return drizzle(sqlite, { schema });
