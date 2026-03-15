@@ -1,4 +1,4 @@
-import 'dotenv/config';
+if (process.env.NODE_ENV !== 'production') await import('dotenv/config');
 
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
