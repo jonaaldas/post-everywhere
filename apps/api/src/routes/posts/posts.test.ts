@@ -18,21 +18,31 @@ vi.mock('../../db/posts/posts.js', () => ({
 }));
 
 const mockGetSocialConnection = vi.fn();
+const mockUpdateSocialTokens = vi.fn();
 
 vi.mock('../../db/social/social.js', () => ({
   getSocialConnection: (...args: unknown[]) => mockGetSocialConnection(...args),
+  updateSocialTokens: (...args: unknown[]) => mockUpdateSocialTokens(...args),
 }));
 
 const mockDecrypt = vi.fn((v: string) => v.replace('enc:', ''));
+const mockEncrypt = vi.fn((v: string) => `enc:${v}`);
 
 vi.mock('../../lib/crypto/crypto.js', () => ({
   decrypt: (v: string) => mockDecrypt(v),
+  encrypt: (v: string) => mockEncrypt(v),
 }));
 
 const mockPublish = vi.fn();
 
 vi.mock('../../lib/publisher/index.js', () => ({
   getPublisher: () => ({ publish: mockPublish }),
+}));
+
+const mockRefreshAccessToken = vi.fn();
+
+vi.mock('../../lib/publisher/refresh.js', () => ({
+  refreshAccessToken: (...args: unknown[]) => mockRefreshAccessToken(...args),
 }));
 
 import { posts } from './posts.js';
@@ -224,5 +234,88 @@ describe('POST /api/posts/:id/publish', () => {
     const app = createApp();
     const res = await app.request('/api/posts/p1/publish', { method: 'POST' });
     expect(res.status).toBe(500);
+  });
+
+  it('proactively refreshes token when expired and publishes successfully', async () => {
+    const expiredAt = new Date(Date.now() - 60_000).toISOString(); // 1 min ago
+    mockGetPost.mockResolvedValue({ id: 'p1', userId: 'u1', status: 'approved', platform: 'twitter', content: 'Hello!' });
+    mockGetSocialConnection.mockResolvedValue({
+      accessToken: 'enc:old-token',
+      refreshToken: 'enc:refresh-tok',
+      tokenExpiresAt: expiredAt,
+    });
+    mockRefreshAccessToken.mockResolvedValue({
+      accessToken: 'new-access',
+      refreshToken: 'new-refresh',
+      expiresIn: 7200,
+    });
+    mockUpdateSocialTokens.mockResolvedValue({});
+    mockPublish.mockResolvedValue({ success: true, platformPostId: 'tw-111' });
+    mockUpdatePostStatus.mockResolvedValue({ id: 'p1', status: 'posted' });
+
+    const app = createApp();
+    const res = await app.request('/api/posts/p1/publish', { method: 'POST' });
+    expect(res.status).toBe(200);
+    expect(mockRefreshAccessToken).toHaveBeenCalledWith('twitter', 'refresh-tok');
+    expect(mockUpdateSocialTokens).toHaveBeenCalled();
+    expect(mockPublish).toHaveBeenCalledWith('Hello!', 'new-access');
+  });
+
+  it('retries with refreshed token on publish 401', async () => {
+    mockGetPost.mockResolvedValue({ id: 'p1', userId: 'u1', status: 'approved', platform: 'twitter', content: 'Hello!' });
+    mockGetSocialConnection.mockResolvedValue({
+      accessToken: 'enc:old-token',
+      refreshToken: 'enc:refresh-tok',
+      tokenExpiresAt: null, // not expired by time, but will fail at publish
+    });
+    mockPublish
+      .mockResolvedValueOnce({ success: false, error: 'expired token — please reconnect' })
+      .mockResolvedValueOnce({ success: true, platformPostId: 'tw-222' });
+    mockRefreshAccessToken.mockResolvedValue({
+      accessToken: 'refreshed-access',
+      refreshToken: 'refreshed-refresh',
+      expiresIn: 7200,
+    });
+    mockUpdateSocialTokens.mockResolvedValue({});
+    mockUpdatePostStatus.mockResolvedValue({ id: 'p1', status: 'posted' });
+
+    const app = createApp();
+    const res = await app.request('/api/posts/p1/publish', { method: 'POST' });
+    expect(res.status).toBe(200);
+    expect(mockPublish).toHaveBeenCalledTimes(2);
+    expect(mockRefreshAccessToken).toHaveBeenCalledWith('twitter', 'refresh-tok');
+    expect(mockPublish).toHaveBeenLastCalledWith('Hello!', 'refreshed-access');
+  });
+
+  it('returns 401 when refresh fails', async () => {
+    mockGetPost.mockResolvedValue({ id: 'p1', userId: 'u1', status: 'approved', platform: 'twitter', content: 'Hi' });
+    mockGetSocialConnection.mockResolvedValue({
+      accessToken: 'enc:old-token',
+      refreshToken: 'enc:refresh-tok',
+      tokenExpiresAt: null,
+    });
+    mockPublish.mockResolvedValue({ success: false, error: 'expired token — please reconnect' });
+    mockRefreshAccessToken.mockRejectedValue(new Error('Twitter token refresh failed'));
+
+    const app = createApp();
+    const res = await app.request('/api/posts/p1/publish', { method: 'POST' });
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.error).toContain('reconnect');
+  });
+
+  it('returns 401 when no refresh token available', async () => {
+    mockGetPost.mockResolvedValue({ id: 'p1', userId: 'u1', status: 'approved', platform: 'twitter', content: 'Hi' });
+    mockGetSocialConnection.mockResolvedValue({
+      accessToken: 'enc:old-token',
+      refreshToken: null,
+      tokenExpiresAt: null,
+    });
+    mockPublish.mockResolvedValue({ success: false, error: 'expired token — please reconnect' });
+    mockRefreshAccessToken.mockRejectedValue(new Error('No refresh token available'));
+
+    const app = createApp();
+    const res = await app.request('/api/posts/p1/publish', { method: 'POST' });
+    expect(res.status).toBe(401);
   });
 });

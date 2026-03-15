@@ -1,9 +1,10 @@
 import { Hono } from 'hono';
 
 import { listPosts, getPost, updatePostStatus, updatePostContent } from '../../db/posts/posts.js';
-import { getSocialConnection } from '../../db/social/social.js';
-import { decrypt } from '../../lib/crypto/crypto.js';
+import { getSocialConnection, updateSocialTokens } from '../../db/social/social.js';
+import { decrypt, encrypt } from '../../lib/crypto/crypto.js';
 import { getPublisher } from '../../lib/publisher/index.js';
+import { refreshAccessToken } from '../../lib/publisher/refresh.js';
 
 const posts = new Hono();
 
@@ -76,9 +77,48 @@ posts.post('/:id/publish', async (c) => {
     return c.json({ error: `${post.platform} not connected` }, 400);
   }
 
-  const accessToken = decrypt(connection.accessToken);
+  let accessToken = decrypt(connection.accessToken);
   const publisher = getPublisher(post.platform);
-  const result = await publisher.publish(post.content, accessToken);
+
+  // Proactively refresh if token is expired or within 5 minutes of expiry
+  const REFRESH_BUFFER_MS = 5 * 60 * 1000;
+  if (connection.tokenExpiresAt && new Date(connection.tokenExpiresAt).getTime() < Date.now() + REFRESH_BUFFER_MS) {
+    try {
+      const refreshToken = connection.refreshToken ? decrypt(connection.refreshToken) : null;
+      const refreshed = await refreshAccessToken(post.platform, refreshToken);
+      accessToken = refreshed.accessToken;
+      await updateSocialTokens(userId, post.platform, {
+        accessToken: encrypt(refreshed.accessToken),
+        refreshToken: refreshed.refreshToken ? encrypt(refreshed.refreshToken) : undefined,
+        tokenExpiresAt: refreshed.expiresIn
+          ? new Date(Date.now() + refreshed.expiresIn * 1000).toISOString()
+          : null,
+      });
+    } catch {
+      return c.json({ error: `${post.platform} token expired — please reconnect` }, 401);
+    }
+  }
+
+  let result = await publisher.publish(post.content, accessToken);
+
+  // On publish 401, attempt refresh once and retry
+  if (!result.success && (result.error?.toLowerCase().includes('expired') || result.error?.toLowerCase().includes('reconnect'))) {
+    try {
+      const refreshToken = connection.refreshToken ? decrypt(connection.refreshToken) : null;
+      const refreshed = await refreshAccessToken(post.platform, refreshToken);
+      accessToken = refreshed.accessToken;
+      await updateSocialTokens(userId, post.platform, {
+        accessToken: encrypt(refreshed.accessToken),
+        refreshToken: refreshed.refreshToken ? encrypt(refreshed.refreshToken) : undefined,
+        tokenExpiresAt: refreshed.expiresIn
+          ? new Date(Date.now() + refreshed.expiresIn * 1000).toISOString()
+          : null,
+      });
+      result = await publisher.publish(post.content, accessToken);
+    } catch {
+      return c.json({ error: `${post.platform} token expired — please reconnect` }, 401);
+    }
+  }
 
   if (!result.success) {
     if (result.error?.toLowerCase().includes('rate limit')) {
