@@ -13,7 +13,7 @@ async function getPersonUrn(accessToken: string): Promise<string> {
   }
 
   const data = await res.json() as { sub: string };
-  return data.sub;
+  return `urn:li:person:${data.sub}`;
 }
 
 export const linkedinPublisher: Publisher = {
@@ -48,7 +48,7 @@ export const linkedinPublisher: Publisher = {
         return { success: false, error: body.message ?? `LinkedIn API error: ${res.status}` };
       }
 
-      const body = await res.json() as { id?: string };
+      const body = await res.json().catch(() => ({})) as { id?: string };
       const postId = body.id ?? res.headers.get('x-restli-id') ?? undefined;
       return { success: true, platformPostId: postId };
     } catch (err: any) {

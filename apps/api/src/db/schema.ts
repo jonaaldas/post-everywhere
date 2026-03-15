@@ -65,7 +65,7 @@ export type WatchedRepo = typeof watchedRepos.$inferSelect;
 // --- Phase 3: Posts ---
 
 export const postPlatforms = ['twitter', 'linkedin'] as const;
-export const postStatuses = ['pending', 'approved', 'posted', 'rejected'] as const;
+export const postStatuses = ['pending', 'approved', 'posted', 'rejected', 'archived'] as const;
 
 export const posts = sqliteTable('posts', {
   id: text('id').primaryKey(),

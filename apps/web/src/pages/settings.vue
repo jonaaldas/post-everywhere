@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import confetti from 'canvas-confetti';
 import { Github, Linkedin, Twitter, Check, X, Eye, EyeOff } from 'lucide-vue-next';
 import { toast } from 'vue-sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -69,11 +68,6 @@ const repoOptions = computed<RepoOption[]>(() =>
     description: r.description,
   }))
 );
-
-// Confetti on page load
-onMounted(() => {
-  confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
-});
 
 // Check GitHub connection on mount — don't render card content until done
 onMounted(async () => {
@@ -161,8 +155,13 @@ async function disconnectSocial(platform: string) {
 }
 
 const platformIcon: Record<string, any> = {
-  twitter: Twitter,
+  twitter: Twitter, // lucide Twitter bird icon — close enough
   linkedin: Linkedin,
+};
+
+const platformName: Record<string, string> = {
+  twitter: 'X',
+  linkedin: 'LinkedIn',
 };
 
 // Check for ?connected= query param (OAuth callback redirect)
@@ -301,9 +300,9 @@ onMounted(() => {
       <TabsContent value="social" class="space-y-4 pt-4">
         <Card v-for="conn in connections" :key="conn.platform" class="border-border/70 bg-card/85">
           <CardHeader>
-            <CardTitle class="flex items-center gap-2 capitalize">
+            <CardTitle class="flex items-center gap-2">
               <component :is="platformIcon[conn.platform]" class="size-5" />
-              {{ conn.platform }}
+              {{ platformName[conn.platform] ?? conn.platform }}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -321,7 +320,7 @@ onMounted(() => {
               </Button>
             </div>
             <div v-else>
-              <Button @click="connectSocial(conn.platform)"> Connect {{ conn.platform }} </Button>
+              <Button @click="connectSocial(conn.platform)"> Connect {{ platformName[conn.platform] ?? conn.platform }} </Button>
             </div>
           </CardContent>
         </Card>

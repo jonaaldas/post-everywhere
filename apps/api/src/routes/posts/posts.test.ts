@@ -9,12 +9,14 @@ const mockListPosts = vi.fn();
 const mockGetPost = vi.fn();
 const mockUpdatePostStatus = vi.fn();
 const mockUpdatePostContent = vi.fn();
+const mockDuplicatePost = vi.fn();
 
 vi.mock('../../db/posts/posts.js', () => ({
   listPosts: (...args: unknown[]) => mockListPosts(...args),
   getPost: (...args: unknown[]) => mockGetPost(...args),
   updatePostStatus: (...args: unknown[]) => mockUpdatePostStatus(...args),
   updatePostContent: (...args: unknown[]) => mockUpdatePostContent(...args),
+  duplicatePost: (...args: unknown[]) => mockDuplicatePost(...args),
 }));
 
 const mockGetSocialConnection = vi.fn();
@@ -317,5 +319,67 @@ describe('POST /api/posts/:id/publish', () => {
     const app = createApp();
     const res = await app.request('/api/posts/p1/publish', { method: 'POST' });
     expect(res.status).toBe(401);
+  });
+});
+
+describe('POST /api/posts/:id/archive', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('archives a pending post', async () => {
+    mockGetPost.mockResolvedValue({ id: 'p1', userId: 'u1', status: 'pending' });
+    mockUpdatePostStatus.mockResolvedValue({ id: 'p1', status: 'archived' });
+    const app = createApp();
+    const res = await app.request('/api/posts/p1/archive', { method: 'POST' });
+    expect(res.status).toBe(200);
+    expect(mockUpdatePostStatus).toHaveBeenCalledWith('p1', 'archived');
+  });
+
+  it('rejects archiving a published post', async () => {
+    mockGetPost.mockResolvedValue({ id: 'p1', userId: 'u1', status: 'posted' });
+    const app = createApp();
+    const res = await app.request('/api/posts/p1/archive', { method: 'POST' });
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('POST /api/posts/:id/restore', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('restores an archived post to pending', async () => {
+    mockGetPost.mockResolvedValue({ id: 'p1', userId: 'u1', status: 'archived' });
+    mockUpdatePostStatus.mockResolvedValue({ id: 'p1', status: 'pending' });
+    const app = createApp();
+    const res = await app.request('/api/posts/p1/restore', { method: 'POST' });
+    expect(res.status).toBe(200);
+    expect(mockUpdatePostStatus).toHaveBeenCalledWith('p1', 'pending');
+  });
+
+  it('restores a rejected post to pending', async () => {
+    mockGetPost.mockResolvedValue({ id: 'p1', userId: 'u1', status: 'rejected' });
+    mockUpdatePostStatus.mockResolvedValue({ id: 'p1', status: 'pending' });
+    const app = createApp();
+    const res = await app.request('/api/posts/p1/restore', { method: 'POST' });
+    expect(res.status).toBe(200);
+  });
+
+  it('rejects restoring a posted post', async () => {
+    mockGetPost.mockResolvedValue({ id: 'p1', userId: 'u1', status: 'posted' });
+    const app = createApp();
+    const res = await app.request('/api/posts/p1/restore', { method: 'POST' });
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('POST /api/posts/:id/duplicate', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('duplicates a post', async () => {
+    mockGetPost.mockResolvedValue({ id: 'p1', userId: 'u1', status: 'posted', content: 'Hello', platform: 'twitter' });
+    mockDuplicatePost.mockResolvedValue({ id: 'p2', status: 'pending', content: 'Hello', platform: 'twitter' });
+    const app = createApp();
+    const res = await app.request('/api/posts/p1/duplicate', { method: 'POST' });
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.status).toBe('pending');
   });
 });

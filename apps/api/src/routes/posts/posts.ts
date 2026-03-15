@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 
-import { listPosts, getPost, updatePostStatus, updatePostContent } from '../../db/posts/posts.js';
+import { listPosts, getPost, updatePostStatus, updatePostContent, duplicatePost } from '../../db/posts/posts.js';
 import { getSocialConnection, updateSocialTokens } from '../../db/social/social.js';
 import { decrypt, encrypt } from '../../lib/crypto/crypto.js';
 import { getPublisher } from '../../lib/publisher/index.js';
@@ -58,6 +58,43 @@ posts.patch('/:id', async (c) => {
   return c.json(updated);
 });
 
+posts.post('/:id/archive', async (c) => {
+  const userId = (c.get('jwtPayload') as { sub: string }).sub;
+  const post = await getPost(c.req.param('id'));
+
+  if (!post) return c.json({ error: 'post not found' }, 404);
+  if (post.userId !== userId) return c.json({ error: 'forbidden' }, 403);
+  if (post.status === 'posted') return c.json({ error: 'cannot archive a published post' }, 400);
+
+  const updated = await updatePostStatus(post.id, 'archived');
+  return c.json(updated);
+});
+
+posts.post('/:id/restore', async (c) => {
+  const userId = (c.get('jwtPayload') as { sub: string }).sub;
+  const post = await getPost(c.req.param('id'));
+
+  if (!post) return c.json({ error: 'post not found' }, 404);
+  if (post.userId !== userId) return c.json({ error: 'forbidden' }, 403);
+  if (post.status !== 'archived' && post.status !== 'rejected') {
+    return c.json({ error: 'only archived or rejected posts can be restored' }, 400);
+  }
+
+  const updated = await updatePostStatus(post.id, 'pending');
+  return c.json(updated);
+});
+
+posts.post('/:id/duplicate', async (c) => {
+  const userId = (c.get('jwtPayload') as { sub: string }).sub;
+  const post = await getPost(c.req.param('id'));
+
+  if (!post) return c.json({ error: 'post not found' }, 404);
+  if (post.userId !== userId) return c.json({ error: 'forbidden' }, 403);
+
+  const newPost = await duplicatePost(post.id);
+  return c.json(newPost, 201);
+});
+
 posts.post('/:id/publish', async (c) => {
   const userId = (c.get('jwtPayload') as { sub: string }).sub;
   const post = await getPost(c.req.param('id'));
@@ -90,9 +127,7 @@ posts.post('/:id/publish', async (c) => {
       await updateSocialTokens(userId, post.platform, {
         accessToken: encrypt(refreshed.accessToken),
         refreshToken: refreshed.refreshToken ? encrypt(refreshed.refreshToken) : undefined,
-        tokenExpiresAt: refreshed.expiresIn
-          ? new Date(Date.now() + refreshed.expiresIn * 1000).toISOString()
-          : null,
+        tokenExpiresAt: refreshed.expiresIn ? new Date(Date.now() + refreshed.expiresIn * 1000).toISOString() : null,
       });
     } catch {
       return c.json({ error: `${post.platform} token expired — please reconnect` }, 401);
@@ -102,7 +137,10 @@ posts.post('/:id/publish', async (c) => {
   let result = await publisher.publish(post.content, accessToken);
 
   // On publish 401, attempt refresh once and retry
-  if (!result.success && (result.error?.toLowerCase().includes('expired') || result.error?.toLowerCase().includes('reconnect'))) {
+  if (
+    !result.success &&
+    (result.error?.toLowerCase().includes('expired') || result.error?.toLowerCase().includes('reconnect'))
+  ) {
     try {
       const refreshToken = connection.refreshToken ? decrypt(connection.refreshToken) : null;
       const refreshed = await refreshAccessToken(post.platform, refreshToken);
@@ -110,9 +148,7 @@ posts.post('/:id/publish', async (c) => {
       await updateSocialTokens(userId, post.platform, {
         accessToken: encrypt(refreshed.accessToken),
         refreshToken: refreshed.refreshToken ? encrypt(refreshed.refreshToken) : undefined,
-        tokenExpiresAt: refreshed.expiresIn
-          ? new Date(Date.now() + refreshed.expiresIn * 1000).toISOString()
-          : null,
+        tokenExpiresAt: refreshed.expiresIn ? new Date(Date.now() + refreshed.expiresIn * 1000).toISOString() : null,
       });
       result = await publisher.publish(post.content, accessToken);
     } catch {
