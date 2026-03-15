@@ -36,7 +36,7 @@ app.get('/api/status', async (c) => {
     version: '0.1.0',
     uptimeSeconds: Math.round(process.uptime()),
     timestamp: new Date().toISOString(),
-    routes: ['/api/status', '/api/channels', '/api/auth/register', '/api/auth/login'],
+    routes: ['/api/status', '/api/channels', '/api/auth/register', '/api/auth/login', '/api/webhook-logs'],
     database,
   });
 });
