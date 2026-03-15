@@ -24,7 +24,7 @@ interface Post {
   prDescription: string | null
   platform: 'twitter' | 'linkedin'
   content: string
-  status: 'pending' | 'approved' | 'posted' | 'rejected'
+  status: 'pending' | 'approved' | 'posted' | 'rejected' | 'archived'
   postedAt: string | null
   createdAt: string
 }
@@ -90,10 +90,6 @@ async function reject() {
   await updatePost({ status: 'rejected' })
 }
 
-async function reopen() {
-  await updatePost({ status: 'pending' })
-}
-
 async function publish() {
   actionLoading.value = true
   showPublishDialog.value = false
@@ -114,6 +110,52 @@ async function publish() {
   } finally {
     actionLoading.value = false
   }
+}
+
+async function archivePost() {
+  actionLoading.value = true
+  try {
+    await api(`/posts/${postId.value}/archive`, { method: 'POST' })
+    queryCache.invalidateQueries({ key: ['posts'] })
+    toast.success('Post archived')
+    router.push('/')
+  } catch (e: any) {
+    toast.error(e.data?.error || 'Failed to archive')
+  } finally {
+    actionLoading.value = false
+  }
+}
+
+async function restorePost() {
+  actionLoading.value = true
+  try {
+    await api(`/posts/${postId.value}/restore`, { method: 'POST' })
+    await refetch()
+    queryCache.invalidateQueries({ key: ['posts'] })
+    toast.success('Post restored')
+  } catch (e: any) {
+    toast.error(e.data?.error || 'Failed to restore')
+  } finally {
+    actionLoading.value = false
+  }
+}
+
+async function duplicatePost() {
+  actionLoading.value = true
+  try {
+    const newPost = await api<Post>(`/posts/${postId.value}/duplicate`, { method: 'POST' })
+    queryCache.invalidateQueries({ key: ['posts'] })
+    toast.success('Post duplicated')
+    router.push(`/posts/${newPost.id}`)
+  } catch (e: any) {
+    toast.error(e.data?.error || 'Failed to duplicate')
+  } finally {
+    actionLoading.value = false
+  }
+}
+
+function platformName(platform: string) {
+  return platform === 'twitter' ? 'X' : 'LinkedIn'
 }
 
 function statusVariant(status: string) {
@@ -156,7 +198,10 @@ function formatDate(iso: string) {
               </p>
             </div>
             <div class="flex shrink-0 items-center gap-2">
-              <Badge variant="outline" class="capitalize">{{ post.platform }}</Badge>
+              <Badge
+                variant="outline"
+                :class="post.platform === 'twitter' ? 'border-black bg-black text-white' : 'border-[#0A66C2] bg-[#0A66C2] text-white'"
+              >{{ post.platform === 'twitter' ? 'X' : 'LinkedIn' }}</Badge>
               <Badge :variant="statusVariant(post.status)" class="capitalize">{{ post.status }}</Badge>
             </div>
           </div>
@@ -184,6 +229,7 @@ function formatDate(iso: string) {
             <template v-if="post.status === 'pending'">
               <Button @click="approve" :disabled="actionLoading">Approve</Button>
               <Button variant="destructive" @click="reject" :disabled="actionLoading">Reject</Button>
+              <Button variant="outline" @click="archivePost" :disabled="actionLoading">Archive</Button>
             </template>
 
             <template v-else-if="post.status === 'approved'">
@@ -197,14 +243,21 @@ function formatDate(iso: string) {
               </Button>
               <Button @click="showPublishDialog = true" :disabled="actionLoading">Publish</Button>
               <Button variant="destructive" @click="reject" :disabled="actionLoading">Reject</Button>
+              <Button variant="outline" @click="archivePost" :disabled="actionLoading">Archive</Button>
             </template>
 
             <template v-else-if="post.status === 'rejected'">
-              <Button variant="outline" @click="reopen" :disabled="actionLoading">Reopen</Button>
+              <Button variant="outline" @click="restorePost" :disabled="actionLoading">Restore</Button>
+              <Button variant="outline" @click="archivePost" :disabled="actionLoading">Archive</Button>
+            </template>
+
+            <template v-else-if="post.status === 'archived'">
+              <Button variant="outline" @click="restorePost" :disabled="actionLoading">Restore</Button>
             </template>
 
             <template v-else-if="post.status === 'posted'">
               <p class="text-sm text-muted-foreground">This post has been published.</p>
+              <Button variant="outline" @click="duplicatePost" :disabled="actionLoading">Duplicate & edit</Button>
             </template>
           </div>
         </CardContent>
@@ -215,9 +268,9 @@ function formatDate(iso: string) {
     <Dialog v-model:open="showPublishDialog">
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Publish to {{ post?.platform }}?</DialogTitle>
+          <DialogTitle>Publish to {{ platformName(post?.platform ?? '') }}?</DialogTitle>
           <DialogDescription>
-            This will post the content to your {{ post?.platform }} account. This action cannot be undone.
+            This will post the content to your {{ platformName(post?.platform ?? '') }} account. This action cannot be undone.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>

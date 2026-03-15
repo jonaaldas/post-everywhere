@@ -79,3 +79,35 @@ Follow strict TDD for every phase/feature:
 - Base config in root `tsconfig.base.json` (ES2022, strict, bundler resolution)
 - API overrides to NodeNext module resolution with `outDir: dist`
 - Web uses `@vue/tsconfig` with path alias `@` → `./src`
+
+## Changelog
+
+Update this section every time you finish a batch of work. Include date, what changed, and files touched.
+
+### 2026-03-15
+
+**Token refresh for publish flow**
+- Created `apps/api/src/lib/publisher/refresh.ts` — `refreshAccessToken()` for Twitter & LinkedIn
+- Created `apps/api/src/lib/publisher/refresh.test.ts`
+- Updated publish endpoint (`apps/api/src/routes/posts/posts.ts`) to proactively refresh expired tokens and retry on 401
+- Updated `apps/api/src/routes/posts/posts.test.ts` with refresh test cases
+
+**LinkedIn publisher fixes**
+- Fixed `getPersonUrn()` to return `urn:li:person:{sub}` format (`apps/api/src/lib/publisher/linkedin.ts`)
+- Fixed empty body JSON parse on 201 success (`.json().catch(() => ({}))`)
+- Updated `apps/api/src/lib/publisher/linkedin.test.ts` mock data
+
+**AI JSON parsing fix**
+- Strip markdown code fences before `JSON.parse` in `apps/api/src/lib/ai/ai.ts`
+
+**Post archive/restore/duplicate**
+- Added `archived` status to `apps/api/src/db/schema.ts`
+- Added `duplicatePost()`, updated `listPosts()` to exclude archived by default (`apps/api/src/db/posts/posts.ts`)
+- Added archive/restore/duplicate API endpoints (`apps/api/src/routes/posts/posts.ts`)
+- Tests for all new DB functions and routes
+
+**Frontend: posts list tabs + UI polish**
+- Replaced flat list with 4 tabs: Drafts, Published, Rejected, Archived (`apps/web/src/pages/index.vue`)
+- Archive/Restore/Duplicate buttons on list cards and detail page (`apps/web/src/pages/posts/[id].vue`)
+- Platform badges: X (black), LinkedIn (blue) across all pages
+- Renamed all "twitter" display text to "X" (settings, posts list, detail, publish dialog)

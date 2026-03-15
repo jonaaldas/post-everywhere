@@ -10,7 +10,7 @@ vi.mock('../client/client.js', () => ({
   },
 }));
 
-import { createPost, getPost, listPosts, updatePostStatus, updatePostContent } from './posts.js';
+import { createPost, getPost, listPosts, updatePostStatus, updatePostContent, duplicatePost } from './posts.js';
 
 async function seedUser(id = 'u1') {
   await testDb.insert(users).values({ id, email: 'test@test.com', passwordHash: 'hash' });
@@ -119,6 +119,34 @@ describe('db/posts', () => {
       await createPost({ id: 'p1', userId: 'u1', repoFullName: 'r', prNumber: 1, prTitle: 't', platform: 'twitter', content: 'old', status: 'pending' });
       const updated = await updatePostContent('p1', 'new content');
       expect(updated.content).toBe('new content');
+    });
+  });
+
+  describe('listPosts excludes archived', () => {
+    it('excludes archived posts by default', async () => {
+      await createPost({ id: 'p1', userId: 'u1', repoFullName: 'r', prNumber: 1, prTitle: 't', platform: 'twitter', content: 'c', status: 'pending' });
+      await createPost({ id: 'p2', userId: 'u1', repoFullName: 'r', prNumber: 1, prTitle: 't', platform: 'twitter', content: 'c', status: 'archived' });
+      const result = await listPosts('u1');
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('p1');
+    });
+
+    it('returns archived posts when explicitly filtered', async () => {
+      await createPost({ id: 'p1', userId: 'u1', repoFullName: 'r', prNumber: 1, prTitle: 't', platform: 'twitter', content: 'c', status: 'archived' });
+      const result = await listPosts('u1', { status: 'archived' });
+      expect(result).toHaveLength(1);
+    });
+  });
+
+  describe('duplicatePost', () => {
+    it('creates a copy with pending status', async () => {
+      await createPost({ id: 'p1', userId: 'u1', repoFullName: 'user/repo', prNumber: 42, prTitle: 'Original', platform: 'twitter', content: 'Hello!', status: 'posted' });
+      const copy = await duplicatePost('p1');
+      expect(copy.id).not.toBe('p1');
+      expect(copy.content).toBe('Hello!');
+      expect(copy.platform).toBe('twitter');
+      expect(copy.status).toBe('pending');
+      expect(copy.prTitle).toBe('Original');
     });
   });
 });

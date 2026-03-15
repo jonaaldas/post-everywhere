@@ -155,8 +155,13 @@ async function disconnectSocial(platform: string) {
 }
 
 const platformIcon: Record<string, any> = {
-  twitter: Twitter,
+  twitter: Twitter, // lucide Twitter bird icon — close enough
   linkedin: Linkedin,
+};
+
+const platformName: Record<string, string> = {
+  twitter: 'X',
+  linkedin: 'LinkedIn',
 };
 
 // Check for ?connected= query param (OAuth callback redirect)
@@ -295,9 +300,9 @@ onMounted(() => {
       <TabsContent value="social" class="space-y-4 pt-4">
         <Card v-for="conn in connections" :key="conn.platform" class="border-border/70 bg-card/85">
           <CardHeader>
-            <CardTitle class="flex items-center gap-2 capitalize">
+            <CardTitle class="flex items-center gap-2">
               <component :is="platformIcon[conn.platform]" class="size-5" />
-              {{ conn.platform }}
+              {{ platformName[conn.platform] ?? conn.platform }}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -315,7 +320,7 @@ onMounted(() => {
               </Button>
             </div>
             <div v-else>
-              <Button @click="connectSocial(conn.platform)"> Connect {{ conn.platform }} </Button>
+              <Button @click="connectSocial(conn.platform)"> Connect {{ platformName[conn.platform] ?? conn.platform }} </Button>
             </div>
           </CardContent>
         </Card>

@@ -12,7 +12,7 @@ describe('linkedinPublisher', () => {
     // First call: get profile
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: () => Promise.resolve({ sub: 'urn:li:person:abc123' }),
+      json: () => Promise.resolve({ sub: 'abc123' }),
     });
     // Second call: create post
     mockFetch.mockResolvedValueOnce({
@@ -29,7 +29,7 @@ describe('linkedinPublisher', () => {
   it('returns error on failure', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: () => Promise.resolve({ sub: 'urn:li:person:abc123' }),
+      json: () => Promise.resolve({ sub: 'abc123' }),
     });
     mockFetch.mockResolvedValueOnce({
       ok: false,
@@ -45,7 +45,7 @@ describe('linkedinPublisher', () => {
   it('detects rate limit', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: () => Promise.resolve({ sub: 'urn:li:person:abc123' }),
+      json: () => Promise.resolve({ sub: 'abc123' }),
     });
     mockFetch.mockResolvedValueOnce({
       ok: false,

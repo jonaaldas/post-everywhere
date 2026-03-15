@@ -110,18 +110,16 @@ socialCallback.get('/:platform/callback', async (c) => {
         tokenExpiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
       }
 
-      // Try to get user info — may fail if app lacks v2 access level
       const meRes = await fetch('https://api.x.com/2/users/me', {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
-      if (meRes.ok) {
-        const me = (await meRes.json()) as { data: { id: string; username: string } };
-        platformUserId = me.data.id;
-        platformUsername = me.data.username;
-      } else {
-        platformUserId = 'unknown';
-        platformUsername = 'unknown';
+      if (!meRes.ok) {
+        const err = await meRes.text();
+        return c.json({ error: `Twitter user lookup failed: ${err}` }, 400);
       }
+      const me = (await meRes.json()) as { data: { id: string; username: string } };
+      platformUserId = me.data.id;
+      platformUsername = me.data.username;
     } else {
       const tokenRes = await fetch('https://www.linkedin.com/oauth/v2/accessToken', {
         method: 'POST',
