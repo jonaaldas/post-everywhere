@@ -33,7 +33,7 @@ app.get('/api/status', async (c) => {
 
   return c.json({
     name: 'post-everywhere-api',
-    version: '0.1.0',
+    version: '0.2.0',
     uptimeSeconds: Math.round(process.uptime()),
     timestamp: new Date().toISOString(),
     routes: ['/api/status', '/api/channels', '/api/auth/register', '/api/auth/login', '/api/webhook-logs'],
