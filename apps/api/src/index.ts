@@ -4,7 +4,6 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { serve } from '@hono/node-server';
-import { serveStatic } from '@hono/node-server/serve-static';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 
@@ -72,10 +71,27 @@ app.get('/api/channels', async (c) => {
 // In production, serve the Vue SPA static files
 const webDistPath = resolve(import.meta.dirname, '../../../web/dist');
 if (existsSync(webDistPath)) {
-  app.use('*', serveStatic({ root: webDistPath }));
-  // SPA fallback — serve index.html for all non-API routes
-  const indexHtml = readFileSync(resolve(webDistPath, 'index.html'), 'utf-8');
-  app.get('*', (c) => c.html(indexHtml));
+  console.log(`Serving static files from ${webDistPath}`);
+  app.get('*', async (c, next) => {
+    // Try to serve static file
+    const filePath = resolve(webDistPath, c.req.path === '/' ? 'index.html' : c.req.path.slice(1));
+    if (existsSync(filePath) && !filePath.includes('..')) {
+      const ext = filePath.split('.').pop() ?? '';
+      const mimeTypes: Record<string, string> = {
+        html: 'text/html', js: 'application/javascript', css: 'text/css',
+        json: 'application/json', png: 'image/png', jpg: 'image/jpeg',
+        svg: 'image/svg+xml', woff2: 'font/woff2', woff: 'font/woff',
+        ico: 'image/x-icon', txt: 'text/plain',
+      };
+      const content = readFileSync(filePath);
+      return c.newResponse(content, {
+        headers: { 'Content-Type': mimeTypes[ext] ?? 'application/octet-stream' },
+      });
+    }
+    // SPA fallback — serve index.html for client-side routing
+    const indexHtml = readFileSync(resolve(webDistPath, 'index.html'), 'utf-8');
+    return c.html(indexHtml);
+  });
 } else {
   app.get('/', (c) => c.text('Post Everywhere API'));
 }
