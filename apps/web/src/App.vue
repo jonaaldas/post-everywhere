@@ -18,6 +18,7 @@ const route = useRoute()
 
 const navigation = [
   { label: 'Posts', to: '/' },
+  { label: 'Webhook Logs', to: '/webhook-logs' },
   { label: 'Settings', to: '/settings' },
 ]
 

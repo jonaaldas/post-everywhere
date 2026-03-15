@@ -37,6 +37,11 @@ vi.mock('../../db/posts/posts.js', () => ({
   createPost: (...args: unknown[]) => mockCreatePost(...args),
 }));
 
+const mockCreateWebhookLog = vi.fn().mockResolvedValue({});
+vi.mock('../../db/webhook-logs/webhook-logs.js', () => ({
+  createWebhookLog: (...args: unknown[]) => mockCreateWebhookLog(...args),
+}));
+
 // Mock octokit for fetching diff
 const mockGet = vi.fn();
 vi.mock('octokit', () => ({

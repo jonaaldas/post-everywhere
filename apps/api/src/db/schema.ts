@@ -110,3 +110,21 @@ export const socialConnections = sqliteTable('social_connections', {
 
 export type SocialConnection = typeof socialConnections.$inferSelect;
 export type NewSocialConnection = typeof socialConnections.$inferInsert;
+
+// --- Webhook Logs ---
+
+export const webhookLogs = sqliteTable('webhook_logs', {
+  id: text('id').primaryKey(),
+  eventType: text('event_type').notNull(),
+  source: text('source').notNull(),
+  requestHeaders: text('request_headers').notNull(),
+  requestBody: text('request_body').notNull(),
+  responseBody: text('response_body').notNull(),
+  statusCode: integer('status_code').notNull(),
+  createdAt: text('created_at')
+    .notNull()
+    .default(sql`(CURRENT_TIMESTAMP)`),
+});
+
+export type WebhookLog = typeof webhookLogs.$inferSelect;
+export type NewWebhookLog = typeof webhookLogs.$inferInsert;
