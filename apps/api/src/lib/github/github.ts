@@ -29,18 +29,32 @@ export async function listUserRepos(pat: string) {
 
 export async function createWebhook(pat: string, owner: string, repo: string) {
   const octokit = createOctokit(pat);
-  const { data } = await octokit.rest.repos.createWebhook({
-    owner,
-    repo,
-    config: {
-      url: `${env.appBaseUrl}/api/webhooks/github`,
-      content_type: 'json',
-      secret: env.githubWebhookSecret,
-    },
-    events: ['pull_request'],
-    active: true,
-  });
-  return { webhookId: String(data.id) };
+  const webhookUrl = `${env.appBaseUrl}/api/webhooks/github`;
+
+  try {
+    const { data } = await octokit.rest.repos.createWebhook({
+      owner,
+      repo,
+      config: {
+        url: webhookUrl,
+        content_type: 'json',
+        secret: env.githubWebhookSecret,
+      },
+      events: ['pull_request'],
+      active: true,
+    });
+    return { webhookId: String(data.id) };
+  } catch (err: any) {
+    // 422 = webhook with same URL already exists — find and reuse it
+    if (err.status === 422) {
+      const { data: hooks } = await octokit.rest.repos.listWebhooks({ owner, repo });
+      const existing = hooks.find((h) => h.config.url === webhookUrl);
+      if (existing) {
+        return { webhookId: String(existing.id) };
+      }
+    }
+    throw err;
+  }
 }
 
 export async function deleteWebhook(pat: string, owner: string, repo: string, webhookId: string) {

@@ -18,11 +18,13 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-vue-next": "^0.577.0",
+    "ofetch": "^1.5.1",
     "pinia": "^3.0.4",
     "reka-ui": "^2.9.1",
     "tailwind-merge": "^3.4.0",
     "vue": "^3.5.30",
-    "vue-router": "^5.0.3"
+    "vue-router": "^5.0.3",
+    "vue-sonner": "^2.0.9"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.1",

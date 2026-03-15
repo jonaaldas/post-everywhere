@@ -81,7 +81,7 @@ describe('GET /api/social/:platform/auth', () => {
     const res = await app.request('/api/social/twitter/auth');
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.authUrl).toContain('twitter.com');
+    expect(body.authUrl).toContain('x.com');
   });
 
   it('returns authUrl for linkedin', async () => {

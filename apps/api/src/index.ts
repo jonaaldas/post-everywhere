@@ -7,7 +7,7 @@ import { cors } from 'hono/cors';
 import { listChannels } from './db/channels/channels.js';
 import { pingDatabase } from './db/client/client.js';
 import { env } from './env.js';
-import { jwtAuth } from './middleware/auth/auth.js';
+import { cookieToAuth, jwtAuth } from './middleware/auth/auth.js';
 import { auth } from './routes/auth/auth.js';
 import { github } from './routes/github/github.js';
 import { webhooks } from './routes/webhooks/webhooks.js';
@@ -21,8 +21,7 @@ app.use('/api/*', cors());
 // Public routes (no auth)
 app.route('/api/auth', auth);
 app.route('/api/webhooks', webhooks);
-// Social OAuth callbacks are public (user redirected from provider, no JWT)
-app.route('/api/social', socialCallback);
+app.route('/api/social', socialCallback); // OAuth callbacks (public, no JWT)
 
 app.get('/api/status', async (c) => {
   const database = await pingDatabase();
@@ -38,11 +37,17 @@ app.get('/api/status', async (c) => {
 });
 
 // Protected routes — everything below requires JWT
+app.use('/api/*', cookieToAuth);
 app.use('/api/*', jwtAuth);
+
+app.get('/api/auth/me', (c) => {
+  const payload = c.get('jwtPayload') as { sub: string; email: string };
+  return c.json({ user: { id: payload.sub, email: payload.email } });
+});
 
 app.route('/api/github', github);
 app.route('/api/posts', postsRoutes);
-app.route('/api/social', social);
+app.route('/api/social', social); // Protected social routes (JWT required)
 
 app.get('/api/channels', async (c) => {
   try {

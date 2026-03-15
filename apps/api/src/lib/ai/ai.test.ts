@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('../../env.js', () => ({
-  env: { anthropicApiKey: 'test-key' },
+  env: { openaiApiKey: 'test-key' },
 }));
 
 const mockGenerateText = vi.fn();
@@ -9,8 +9,8 @@ vi.mock('ai', () => ({
   generateText: (...args: unknown[]) => mockGenerateText(...args),
 }));
 
-vi.mock('@ai-sdk/anthropic', () => ({
-  anthropic: vi.fn().mockReturnValue('mock-model'),
+vi.mock('@ai-sdk/openai', () => ({
+  openai: vi.fn().mockReturnValue('mock-model'),
 }));
 
 import { generatePostDrafts } from './ai.js';

@@ -25,6 +25,7 @@ function parsePort(value: string | undefined): number {
 }
 
 export const env = {
+  nodeEnv: process.env.NODE_ENV?.trim() ?? 'development',
   port: parsePort(process.env.PORT),
   tursoDatabaseUrl: getRequiredEnv('TURSO_DATABASE_URL'),
   tursoAuthToken: getRequiredEnv('TURSO_AUTH_TOKEN'),
@@ -32,10 +33,11 @@ export const env = {
   githubWebhookSecret: getRequiredEnv('GITHUB_WEBHOOK_SECRET'),
   encryptionKey: getRequiredEnv('ENCRYPTION_KEY'), // 32-byte hex string for AES-256-GCM
   appBaseUrl: getRequiredEnv('APP_BASE_URL'),
-  anthropicApiKey: getRequiredEnv('ANTHROPIC_API_KEY'),
+  openaiApiKey: getRequiredEnv('OPENAI_API_KEY'),
   // Phase 4: Social OAuth (optional — features disabled when absent)
   twitterClientId: process.env.TWITTER_CLIENT_ID?.trim() ?? '',
   twitterClientSecret: process.env.TWITTER_CLIENT_SECRET?.trim() ?? '',
   linkedinClientId: process.env.LINKEDIN_CLIENT_ID?.trim() ?? '',
   linkedinClientSecret: process.env.LINKEDIN_CLIENT_SECRET?.trim() ?? '',
+  redisUrl: process.env.REDIS_URL?.trim() ?? 'redis://localhost:6379',
 } as const;

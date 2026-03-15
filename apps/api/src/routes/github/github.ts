@@ -3,6 +3,7 @@ import { Hono } from 'hono';
 import { encrypt, decrypt } from '../../lib/crypto/crypto.js';
 import { verifyPat, listUserRepos, createWebhook, deleteWebhook } from '../../lib/github/github.js';
 import { saveConnection, getConnection, addWatchedRepo, getWatchedRepo, removeWatchedRepo, listWatchedRepos } from '../../db/github/github.js';
+import { cacheGet, cacheSet, cacheDel } from '../../lib/redis/redis.js';
 
 const github = new Hono();
 
@@ -33,8 +34,16 @@ github.get('/repos', async (c) => {
     return c.json({ error: 'GitHub not connected' }, 400);
   }
 
-  const pat = decrypt(connection.personalAccessToken);
-  const repos = await listUserRepos(pat);
+  const cacheKey = `github:repos:${userId}`;
+  type CachedRepo = ReturnType<typeof listUserRepos> extends Promise<(infer T)[]> ? T : never;
+  let repos = await cacheGet<CachedRepo[]>(cacheKey);
+
+  if (!repos) {
+    const pat = decrypt(connection.personalAccessToken);
+    repos = await listUserRepos(pat);
+    await cacheSet(cacheKey, repos, 300); // 5 min TTL
+  }
+
   const watched = await listWatchedRepos(userId);
   const watchedSet = new Set(watched.map((w) => w.repoFullName));
 

@@ -1,5 +1,5 @@
 import { generateText } from 'ai';
-import { anthropic } from '@ai-sdk/anthropic';
+import { openai } from '@ai-sdk/openai';
 
 export async function generatePostDrafts(
   prTitle: string,
@@ -9,7 +9,7 @@ export async function generatePostDrafts(
   const truncatedDiff = diff.slice(0, 4000);
 
   const { text } = await generateText({
-    model: anthropic('claude-sonnet-4-20250514'),
+    model: openai('gpt-4o'),
     prompt: `You are a developer advocate writing social media posts about a merged pull request.
 
 PR Title: ${prTitle}

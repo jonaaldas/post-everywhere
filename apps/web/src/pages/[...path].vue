@@ -14,7 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
       </CardHeader>
       <CardContent>
         <Button as-child class="rounded-full px-5">
-          <RouterLink to="/">Back to overview</RouterLink>
+          <RouterLink to="/">Back to posts</RouterLink>
         </Button>
       </CardContent>
     </Card>

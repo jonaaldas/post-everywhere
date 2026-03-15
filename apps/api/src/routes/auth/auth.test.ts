@@ -3,7 +3,7 @@ import { Hono } from 'hono';
 
 // Mock env
 vi.mock('../../env.js', () => ({
-  env: { jwtSecret: 'test-secret-key' },
+  env: { jwtSecret: 'test-secret-key', nodeEnv: 'test' },
 }));
 
 // Mock db/users
@@ -23,6 +23,13 @@ function createApp() {
   const app = new Hono();
   app.route('/api/auth', auth);
   return app;
+}
+
+function getCookieValue(res: Response, name: string): string | undefined {
+  const header = res.headers.get('set-cookie');
+  if (!header) return undefined;
+  const match = header.match(new RegExp(`${name}=([^;]*)`));
+  return match?.[1];
 }
 
 describe('POST /api/auth/register', () => {
@@ -74,7 +81,7 @@ describe('POST /api/auth/register', () => {
     expect(await res.json()).toEqual({ error: 'registration is closed (single-user app)' });
   });
 
-  it('registers first user and returns JWT', async () => {
+  it('registers first user, sets cookie, and returns user', async () => {
     mockCountUsers.mockResolvedValue(0);
     mockCreateUser.mockResolvedValue({ id: 'user-1', email: 'user@test.com' });
 
@@ -86,8 +93,9 @@ describe('POST /api/auth/register', () => {
     });
     expect(res.status).toBe(201);
     const body = await res.json();
-    expect(body.token).toBeDefined();
     expect(body.user.email).toBe('user@test.com');
+    expect(body.token).toBeUndefined();
+    expect(getCookieValue(res, 'pe_token')).toBeDefined();
     expect(mockCreateUser).toHaveBeenCalledOnce();
   });
 });
@@ -120,7 +128,6 @@ describe('POST /api/auth/login', () => {
   });
 
   it('returns 401 for wrong password', async () => {
-    // bcrypt hash of "correctpassword"
     const bcrypt = await import('bcryptjs');
     const hash = await bcrypt.hash('correctpassword', 10);
     mockFindByEmail.mockResolvedValue({ id: 'user-1', email: 'user@test.com', passwordHash: hash });
@@ -134,7 +141,7 @@ describe('POST /api/auth/login', () => {
     expect(res.status).toBe(401);
   });
 
-  it('returns JWT for valid credentials', async () => {
+  it('returns user and sets cookie for valid credentials', async () => {
     const bcrypt = await import('bcryptjs');
     const hash = await bcrypt.hash('correctpassword', 10);
     mockFindByEmail.mockResolvedValue({ id: 'user-1', email: 'user@test.com', passwordHash: hash });
@@ -147,7 +154,18 @@ describe('POST /api/auth/login', () => {
     });
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.token).toBeDefined();
     expect(body.user.email).toBe('user@test.com');
+    expect(body.token).toBeUndefined();
+    expect(getCookieValue(res, 'pe_token')).toBeDefined();
+  });
+});
+
+describe('POST /api/auth/logout', () => {
+  it('clears the pe_token cookie', async () => {
+    const app = createApp();
+    const res = await app.request('/api/auth/logout', { method: 'POST' });
+    expect(res.status).toBe(200);
+    const cookie = res.headers.get('set-cookie');
+    expect(cookie).toContain('pe_token=');
   });
 });

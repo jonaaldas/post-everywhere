@@ -40,9 +40,30 @@ declare module 'vue-router/auto-routes' {
       { path: ParamValue<false> },
       | never
     >,
-    '/insights': RouteRecordInfo<
-      '/insights',
-      '/insights',
+    '/login': RouteRecordInfo<
+      '/login',
+      '/login',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/posts/[id]': RouteRecordInfo<
+      '/posts/[id]',
+      '/posts/:id',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
+      | never
+    >,
+    '/register': RouteRecordInfo<
+      '/register',
+      '/register',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/settings': RouteRecordInfo<
+      '/settings',
+      '/settings',
       Record<never, never>,
       Record<never, never>,
       | never
@@ -72,9 +93,27 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
-    'src/pages/insights.vue': {
+    'src/pages/login.vue': {
       routes:
-        | '/insights'
+        | '/login'
+      views:
+        | never
+    }
+    'src/pages/posts/[id].vue': {
+      routes:
+        | '/posts/[id]'
+      views:
+        | never
+    }
+    'src/pages/register.vue': {
+      routes:
+        | '/register'
+      views:
+        | never
+    }
+    'src/pages/settings.vue': {
+      routes:
+        | '/settings'
       views:
         | never
     }

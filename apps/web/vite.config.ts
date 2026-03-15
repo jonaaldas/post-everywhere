@@ -19,7 +19,7 @@ export default defineConfig({
         'pinia',
         'vue-router',
         {
-          '@pinia/colada': ['useQuery'],
+          '@pinia/colada': ['useQuery', 'useMutation'],
         },
       ],
       dirs: ['src/composables', 'src/stores'],

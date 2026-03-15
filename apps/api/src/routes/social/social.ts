@@ -48,7 +48,7 @@ function getCallbackUrl(platform: string): string {
   return `${env.appBaseUrl}/api/social/${platform}/callback`;
 }
 
-// --- Public routes (OAuth callbacks, no JWT required) ---
+// --- Public routes (OAuth callbacks — mounted before JWT middleware in index.ts) ---
 
 const socialCallback = new Hono();
 
@@ -80,11 +80,11 @@ socialCallback.get('/:platform/callback', async (c) => {
     let tokenExpiresAt: string | null = null;
 
     if (platform === 'twitter') {
-      const tokenRes = await fetch('https://api.twitter.com/2/oauth2/token', {
+      const tokenRes = await fetch('https://api.x.com/2/oauth2/token', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
-          Authorization: `Basic ${btoa(`${env.twitterClientId}:${env.twitterClientSecret}`)}`,
+          Authorization: `Basic ${Buffer.from(`${env.twitterClientId}:${env.twitterClientSecret}`).toString('base64')}`,
         },
         body: new URLSearchParams({
           code,
@@ -110,12 +110,18 @@ socialCallback.get('/:platform/callback', async (c) => {
         tokenExpiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
       }
 
-      const meRes = await fetch('https://api.twitter.com/2/users/me', {
+      // Try to get user info — may fail if app lacks v2 access level
+      const meRes = await fetch('https://api.x.com/2/users/me', {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
-      const me = (await meRes.json()) as { data: { id: string; username: string } };
-      platformUserId = me.data.id;
-      platformUsername = me.data.username;
+      if (meRes.ok) {
+        const me = (await meRes.json()) as { data: { id: string; username: string } };
+        platformUserId = me.data.id;
+        platformUsername = me.data.username;
+      } else {
+        platformUserId = 'unknown';
+        platformUsername = 'unknown';
+      }
     } else {
       const tokenRes = await fetch('https://www.linkedin.com/oauth/v2/accessToken', {
         method: 'POST',
@@ -148,6 +154,10 @@ socialCallback.get('/:platform/callback', async (c) => {
       const meRes = await fetch('https://api.linkedin.com/v2/userinfo', {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
+      if (!meRes.ok) {
+        const err = await meRes.text();
+        return c.json({ error: `LinkedIn user lookup failed: ${err}` }, 400);
+      }
       const me = (await meRes.json()) as { sub: string; name: string };
       platformUserId = me.sub;
       platformUsername = me.name;
@@ -169,7 +179,7 @@ socialCallback.get('/:platform/callback', async (c) => {
   }
 });
 
-// --- Protected routes (JWT required) ---
+// --- Protected routes (JWT required — mounted after JWT middleware in index.ts) ---
 
 const social = new Hono();
 
@@ -214,13 +224,13 @@ social.get('/:platform/auth', async (c) => {
       code_challenge: codeVerifier,
       code_challenge_method: 'plain',
     });
-    authUrl = `https://twitter.com/i/oauth2/authorize?${params}`;
+    authUrl = `https://x.com/i/oauth2/authorize?${params}`;
   } else {
     const params = new URLSearchParams({
       response_type: 'code',
       client_id: env.linkedinClientId,
       redirect_uri: getCallbackUrl('linkedin'),
-      scope: 'openid profile w_member_social',
+      scope: 'profile openid w_member_social',
       state,
     });
     authUrl = `https://www.linkedin.com/oauth/v2/authorization?${params}`;
