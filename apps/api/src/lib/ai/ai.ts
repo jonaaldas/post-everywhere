@@ -25,5 +25,6 @@ Respond ONLY with valid JSON in this exact format, no markdown:
 {"twitter": "...", "linkedin": "..."}`,
   });
 
-  return JSON.parse(text);
+  const cleaned = text.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '');
+  return JSON.parse(cleaned);
 }
