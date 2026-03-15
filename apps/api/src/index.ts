@@ -1,6 +1,10 @@
 import 'dotenv/config';
 
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
 import { serve } from '@hono/node-server';
+import { serveStatic } from '@hono/node-server/serve-static';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 
@@ -65,7 +69,16 @@ app.get('/api/channels', async (c) => {
   }
 });
 
-app.get('/', (c) => c.text('Post Everywhere API'));
+// In production, serve the Vue SPA static files
+const webDistPath = resolve(import.meta.dirname, '../../../web/dist');
+if (existsSync(webDistPath)) {
+  app.use('*', serveStatic({ root: webDistPath }));
+  // SPA fallback — serve index.html for all non-API routes
+  const indexHtml = readFileSync(resolve(webDistPath, 'index.html'), 'utf-8');
+  app.get('*', (c) => c.html(indexHtml));
+} else {
+  app.get('/', (c) => c.text('Post Everywhere API'));
+}
 
 const port = env.port;
 
