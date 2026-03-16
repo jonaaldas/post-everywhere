@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowLeft, Upload, X } from 'lucide-vue-next'
+import { ArrowLeft, ExternalLink, Upload, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -200,6 +200,12 @@ async function duplicatePost() {
   }
 }
 
+function openXComposer() {
+  if (!post.value) return
+  const text = encodeURIComponent(editContent.value || post.value.content)
+  window.open(`https://x.com/intent/tweet?text=${text}`, '_blank')
+}
+
 function platformName(platform: string) {
   return platform === 'twitter' ? 'X' : 'LinkedIn'
 }
@@ -323,6 +329,10 @@ function formatDate(iso: string) {
           <div class="flex items-center gap-2 border-t border-border/70 pt-4">
             <template v-if="post.status === 'pending'">
               <Button @click="approve" :disabled="actionLoading">Approve</Button>
+              <Button v-if="post.platform === 'twitter'" variant="outline" @click="openXComposer">
+                <ExternalLink class="mr-1.5 size-3.5" />
+                Post on X
+              </Button>
               <Button variant="destructive" @click="reject" :disabled="actionLoading">Reject</Button>
               <Button variant="outline" @click="archivePost" :disabled="actionLoading">Archive</Button>
             </template>
@@ -336,7 +346,11 @@ function formatDate(iso: string) {
               >
                 Save changes
               </Button>
-              <Button @click="showPublishDialog = true" :disabled="actionLoading">Publish</Button>
+              <Button @click="showPublishDialog = true" :disabled="actionLoading">Publish via API</Button>
+              <Button v-if="post.platform === 'twitter'" variant="outline" @click="openXComposer">
+                <ExternalLink class="mr-1.5 size-3.5" />
+                Post on X
+              </Button>
               <Button variant="destructive" @click="reject" :disabled="actionLoading">Reject</Button>
               <Button variant="outline" @click="archivePost" :disabled="actionLoading">Archive</Button>
             </template>
