@@ -34,10 +34,10 @@ app.get('/api/status', async (c) => {
 
   return c.json({
     name: 'Post Everywhere API',
-    version: '0.2.0',
+    version: '0.3.0',
     uptimeSeconds: Math.round(process.uptime()),
     timestamp: new Date().toISOString(),
-    routes: ['/api/status', '/api/channels', '/api/auth/register', '/api/auth/login', '/api/webhook-logs'],
+    routes: ['/api/status', '/api/channels', '/api/auth/register', '/api/auth/login', '/api/webhook-logs', '/api/media/upload'],
     database,
   });
 });
