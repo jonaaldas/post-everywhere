@@ -1,0 +1,1 @@
+ALTER TABLE `posts` ADD `media_urls` text;

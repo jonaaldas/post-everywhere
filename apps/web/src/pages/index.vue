@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { FileText } from 'lucide-vue-next'
+import { FileText, Image as ImageIcon } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -15,6 +15,7 @@ interface Post {
   platform: 'twitter' | 'linkedin'
   content: string
   status: 'pending' | 'approved' | 'posted' | 'rejected' | 'archived'
+  mediaUrls: string | null
   postedAt: string | null
   createdAt: string
 }
@@ -65,6 +66,16 @@ function platformClass(platform: string) {
 
 function platformLabel(platform: string) {
   return platform === 'twitter' ? 'X' : 'LinkedIn'
+}
+
+function hasMedia(post: Post) {
+  if (!post.mediaUrls) return false
+  try {
+    const urls = JSON.parse(post.mediaUrls)
+    return Array.isArray(urls) && urls.length > 0
+  } catch {
+    return false
+  }
 }
 
 async function archivePost(e: Event, postId: string) {
@@ -157,6 +168,7 @@ async function duplicatePost(e: Event, postId: string) {
             <div class="flex items-start justify-between gap-3">
               <CardTitle class="text-base font-medium leading-snug">{{ post.prTitle }}</CardTitle>
               <div class="flex shrink-0 items-center gap-2">
+                <ImageIcon v-if="hasMedia(post)" class="size-4 text-muted-foreground" />
                 <Badge variant="outline" :class="platformClass(post.platform)">{{ platformLabel(post.platform) }}</Badge>
                 <Badge :variant="statusVariant(post.status)" class="capitalize">{{ post.status }}</Badge>
               </div>
@@ -191,6 +203,7 @@ async function duplicatePost(e: Event, postId: string) {
             <div class="flex items-start justify-between gap-3">
               <CardTitle class="text-base font-medium leading-snug">{{ post.prTitle }}</CardTitle>
               <div class="flex shrink-0 items-center gap-2">
+                <ImageIcon v-if="hasMedia(post)" class="size-4 text-muted-foreground" />
                 <Badge variant="outline" :class="platformClass(post.platform)">{{ platformLabel(post.platform) }}</Badge>
               </div>
             </div>
@@ -263,6 +276,7 @@ async function duplicatePost(e: Event, postId: string) {
             <div class="flex items-start justify-between gap-3">
               <CardTitle class="text-base font-medium leading-snug">{{ post.prTitle }}</CardTitle>
               <div class="flex shrink-0 items-center gap-2">
+                <ImageIcon v-if="hasMedia(post)" class="size-4 text-muted-foreground" />
                 <Badge variant="outline" :class="platformClass(post.platform)">{{ platformLabel(post.platform) }}</Badge>
               </div>
             </div>

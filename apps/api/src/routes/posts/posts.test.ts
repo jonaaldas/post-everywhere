@@ -9,6 +9,7 @@ const mockListPosts = vi.fn();
 const mockGetPost = vi.fn();
 const mockUpdatePostStatus = vi.fn();
 const mockUpdatePostContent = vi.fn();
+const mockUpdatePostMediaUrls = vi.fn();
 const mockDuplicatePost = vi.fn();
 
 vi.mock('../../db/posts/posts.js', () => ({
@@ -16,6 +17,7 @@ vi.mock('../../db/posts/posts.js', () => ({
   getPost: (...args: unknown[]) => mockGetPost(...args),
   updatePostStatus: (...args: unknown[]) => mockUpdatePostStatus(...args),
   updatePostContent: (...args: unknown[]) => mockUpdatePostContent(...args),
+  updatePostMediaUrls: (...args: unknown[]) => mockUpdatePostMediaUrls(...args),
   duplicatePost: (...args: unknown[]) => mockDuplicatePost(...args),
 }));
 
@@ -154,6 +156,19 @@ describe('PATCH /api/posts/:id', () => {
     expect(res.status).toBe(404);
   });
 
+  it('updates mediaUrls', async () => {
+    mockGetPost.mockResolvedValue({ id: 'p1', userId: 'u1', status: 'pending' });
+    mockUpdatePostMediaUrls.mockResolvedValue({ id: 'p1', mediaUrls: '["https://r2.example.com/img.jpg"]' });
+    const app = createApp();
+    const res = await app.request('/api/posts/p1', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mediaUrls: ['https://r2.example.com/img.jpg'] }),
+    });
+    expect(res.status).toBe(200);
+    expect(mockUpdatePostMediaUrls).toHaveBeenCalledWith('p1', ['https://r2.example.com/img.jpg']);
+  });
+
   it('returns 400 when no content or status provided', async () => {
     mockGetPost.mockResolvedValue({ id: 'p1', userId: 'u1' });
     const app = createApp();
@@ -204,7 +219,7 @@ describe('POST /api/posts/:id/publish', () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.status).toBe('posted');
-    expect(mockPublish).toHaveBeenCalledWith('Hello!', 'real-token');
+    expect(mockPublish).toHaveBeenCalledWith('Hello!', 'real-token', undefined);
     expect(mockUpdatePostStatus).toHaveBeenCalledWith('p1', 'posted');
   });
 
@@ -260,7 +275,7 @@ describe('POST /api/posts/:id/publish', () => {
     expect(res.status).toBe(200);
     expect(mockRefreshAccessToken).toHaveBeenCalledWith('twitter', 'refresh-tok');
     expect(mockUpdateSocialTokens).toHaveBeenCalled();
-    expect(mockPublish).toHaveBeenCalledWith('Hello!', 'new-access');
+    expect(mockPublish).toHaveBeenCalledWith('Hello!', 'new-access', undefined);
   });
 
   it('retries with refreshed token on publish 401', async () => {
@@ -286,7 +301,7 @@ describe('POST /api/posts/:id/publish', () => {
     expect(res.status).toBe(200);
     expect(mockPublish).toHaveBeenCalledTimes(2);
     expect(mockRefreshAccessToken).toHaveBeenCalledWith('twitter', 'refresh-tok');
-    expect(mockPublish).toHaveBeenLastCalledWith('Hello!', 'refreshed-access');
+    expect(mockPublish).toHaveBeenLastCalledWith('Hello!', 'refreshed-access', undefined);
   });
 
   it('returns 401 when refresh fails', async () => {

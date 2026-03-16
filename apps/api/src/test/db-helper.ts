@@ -61,6 +61,7 @@ export function createTestDb() {
       platform TEXT NOT NULL,
       content TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'pending',
+      media_urls TEXT,
       posted_at TEXT,
       created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP)
     );

@@ -84,6 +84,29 @@ Follow strict TDD for every phase/feature:
 
 Update this section every time you finish a batch of work. Include date, what changed, and files touched.
 
+### 2026-03-16
+
+**Media Upload + Publishing**
+- Added `mediaUrls` column to `posts` table (`apps/api/src/db/schema.ts`)
+- Added R2 env vars (`R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_PUBLIC_URL`) to `apps/api/src/env.ts`
+- Created `apps/api/src/lib/storage/r2.ts` — R2 upload/delete via `aws4fetch`
+- Created `apps/api/src/routes/media/media.ts` — `POST /api/media/upload` (multipart, JWT-protected, image/video validation)
+- Added `updatePostMediaUrls()` to `apps/api/src/db/posts/posts.ts`, updated `duplicatePost` to copy mediaUrls
+- Updated `PATCH /api/posts/:id` to accept `mediaUrls` array
+- Updated publish flow to download media from R2 and pass to publishers
+- Added `MediaItem` interface to `apps/api/src/lib/publisher/types.ts`
+- Updated Twitter publisher (`apps/api/src/lib/publisher/twitter.ts`) — image upload via X API v2, `media.write` scope added
+- Updated LinkedIn publisher (`apps/api/src/lib/publisher/linkedin.ts`) — single/multi-image upload via REST API
+- Added `media.write` scope to Twitter OAuth (`apps/api/src/routes/social/social.ts`)
+- Updated test db helper with `media_urls` column
+- Updated `apps/api/src/routes/posts/posts.test.ts` with mediaUrls test cases
+- Mounted `/api/media` route in `apps/api/src/index.ts`
+- Added `aws4fetch` dependency to `apps/api/`
+
+**Frontend: Media Upload UI**
+- Post detail page (`apps/web/src/pages/posts/[id].vue`): media upload zone, image/video previews, remove media, save button for pending posts, media preview in publish dialog
+- Posts list (`apps/web/src/pages/index.vue`): media icon on cards with attached media
+
 ### 2026-03-15
 
 **Token refresh for publish flow**
@@ -123,3 +146,7 @@ Update this section every time you finish a batch of work. Include date, what ch
 - Updated `apps/api/src/test/db-helper.ts` with `webhook_logs` table
 - Created `apps/web/src/pages/webhook-logs.vue` — shadcn Table with status badges, click-to-expand JSON dialog
 - Installed shadcn-vue `table` component
+- Added "Webhook Logs" tab to main navigation (`apps/web/src/App.vue`)
+- Added `/api/webhook-logs` to status endpoint routes list
+- Bumped API version to 0.2.0, renamed status name to title case (`apps/api/src/index.ts`)
+- Fixed GitHub webhook URL — was pointing at ngrok, updated to `https://post.aldas.dev` via GitHub API

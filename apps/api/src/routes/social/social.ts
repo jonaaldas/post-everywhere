@@ -217,7 +217,7 @@ social.get('/:platform/auth', async (c) => {
       response_type: 'code',
       client_id: env.twitterClientId,
       redirect_uri: getCallbackUrl('twitter'),
-      scope: 'tweet.read tweet.write users.read offline.access',
+      scope: 'tweet.read tweet.write users.read offline.access media.write',
       state,
       code_challenge: codeVerifier,
       code_challenge_method: 'plain',

@@ -40,4 +40,10 @@ export const env = {
   linkedinClientId: process.env.LINKEDIN_CLIENT_ID?.trim() ?? '',
   linkedinClientSecret: process.env.LINKEDIN_CLIENT_SECRET?.trim() ?? '',
   redisUrl: process.env.REDIS_URL?.trim() ?? 'redis://localhost:6379',
+  // R2 media storage (optional — feature disabled when absent)
+  r2AccountId: process.env.R2_ACCOUNT_ID?.trim() ?? '',
+  r2AccessKeyId: process.env.R2_ACCESS_KEY_ID?.trim() ?? '',
+  r2SecretAccessKey: process.env.R2_SECRET_ACCESS_KEY?.trim() ?? '',
+  r2BucketName: process.env.R2_BUCKET_NAME?.trim() ?? '',
+  r2PublicUrl: process.env.R2_PUBLIC_URL?.trim() ?? '',
 } as const;

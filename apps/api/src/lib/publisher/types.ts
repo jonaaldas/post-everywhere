@@ -1,3 +1,10 @@
+export interface MediaItem {
+  url: string;
+  buffer: Buffer;
+  mimeType: string;
+  type: 'image' | 'video';
+}
+
 export interface PublishResult {
   success: boolean;
   platformPostId?: string;
@@ -5,5 +12,5 @@ export interface PublishResult {
 }
 
 export interface Publisher {
-  publish(content: string, accessToken: string): Promise<PublishResult>;
+  publish(content: string, accessToken: string, media?: MediaItem[]): Promise<PublishResult>;
 }

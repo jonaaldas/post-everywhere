@@ -79,6 +79,7 @@ export const posts = sqliteTable('posts', {
   platform: text('platform', { enum: postPlatforms }).notNull(),
   content: text('content').notNull(),
   status: text('status', { enum: postStatuses }).notNull().default('pending'),
+  mediaUrls: text('media_urls'), // JSON string array, nullable
   postedAt: text('posted_at'),
   createdAt: text('created_at')
     .notNull()

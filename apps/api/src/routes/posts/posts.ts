@@ -1,10 +1,11 @@
 import { Hono } from 'hono';
 
-import { listPosts, getPost, updatePostStatus, updatePostContent, duplicatePost } from '../../db/posts/posts.js';
+import { listPosts, getPost, updatePostStatus, updatePostContent, updatePostMediaUrls, duplicatePost } from '../../db/posts/posts.js';
 import { getSocialConnection, updateSocialTokens } from '../../db/social/social.js';
 import { decrypt, encrypt } from '../../lib/crypto/crypto.js';
 import { getPublisher } from '../../lib/publisher/index.js';
 import { refreshAccessToken } from '../../lib/publisher/refresh.js';
+import type { MediaItem } from '../../lib/publisher/types.js';
 
 const posts = new Hono();
 
@@ -41,15 +42,18 @@ posts.patch('/:id', async (c) => {
     return c.json({ error: 'forbidden' }, 403);
   }
 
-  const body = await c.req.json<{ content?: string; status?: string }>();
+  const body = await c.req.json<{ content?: string; status?: string; mediaUrls?: string[] }>();
 
-  if (!body.content && !body.status) {
-    return c.json({ error: 'content or status is required' }, 400);
+  if (!body.content && !body.status && !body.mediaUrls) {
+    return c.json({ error: 'content, status, or mediaUrls is required' }, 400);
   }
 
   let updated = post;
   if (body.content) {
     updated = await updatePostContent(post.id, body.content);
+  }
+  if (body.mediaUrls !== undefined) {
+    updated = await updatePostMediaUrls(post.id, body.mediaUrls);
   }
   if (body.status) {
     updated = await updatePostStatus(post.id, body.status as typeof post.status);
@@ -134,7 +138,29 @@ posts.post('/:id/publish', async (c) => {
     }
   }
 
-  let result = await publisher.publish(post.content, accessToken);
+  // Download media from R2 if post has media URLs
+  let mediaItems: MediaItem[] | undefined;
+  if (post.mediaUrls) {
+    try {
+      const urls: string[] = JSON.parse(post.mediaUrls);
+      if (urls.length) {
+        mediaItems = [];
+        for (const url of urls) {
+          const res = await fetch(url);
+          if (!res.ok) continue;
+          const buffer = Buffer.from(await res.arrayBuffer());
+          const mimeType = res.headers.get('content-type') ?? 'image/jpeg';
+          const type = mimeType.startsWith('video/') ? 'video' : 'image';
+          mediaItems.push({ url, buffer, mimeType, type });
+        }
+      }
+    } catch {
+      // If media download fails, publish text-only
+      mediaItems = undefined;
+    }
+  }
+
+  let result = await publisher.publish(post.content, accessToken, mediaItems);
 
   // On publish 401, attempt refresh once and retry
   if (
@@ -150,7 +176,7 @@ posts.post('/:id/publish', async (c) => {
         refreshToken: refreshed.refreshToken ? encrypt(refreshed.refreshToken) : undefined,
         tokenExpiresAt: refreshed.expiresIn ? new Date(Date.now() + refreshed.expiresIn * 1000).toISOString() : null,
       });
-      result = await publisher.publish(post.content, accessToken);
+      result = await publisher.publish(post.content, accessToken, mediaItems);
     } catch {
       return c.json({ error: `${post.platform} token expired — please reconnect` }, 401);
     }

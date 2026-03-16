@@ -50,6 +50,15 @@ export async function updatePostContent(id: string, content: string): Promise<Po
   return row;
 }
 
+export async function updatePostMediaUrls(id: string, mediaUrls: string[]): Promise<Post> {
+  const [row] = await db
+    .update(posts)
+    .set({ mediaUrls: JSON.stringify(mediaUrls) })
+    .where(eq(posts.id, id))
+    .returning();
+  return row;
+}
+
 export async function duplicatePost(id: string): Promise<Post> {
   const original = await getPost(id);
   if (!original) throw new Error('Post not found');
@@ -65,6 +74,7 @@ export async function duplicatePost(id: string): Promise<Post> {
       prDescription: original.prDescription,
       platform: original.platform,
       content: original.content,
+      mediaUrls: original.mediaUrls,
       status: 'pending',
     })
     .returning();

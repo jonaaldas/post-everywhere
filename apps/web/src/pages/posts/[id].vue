@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowLeft } from 'lucide-vue-next'
+import { ArrowLeft, Upload, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -25,6 +25,7 @@ interface Post {
   platform: 'twitter' | 'linkedin'
   content: string
   status: 'pending' | 'approved' | 'posted' | 'rejected' | 'archived'
+  mediaUrls: string | null
   postedAt: string | null
   createdAt: string
 }
@@ -46,6 +47,7 @@ const { data: post, refetch } = useQuery({
 const editContent = ref('')
 const showPublishDialog = ref(false)
 const actionLoading = ref(false)
+const uploadLoading = ref(false)
 
 watch(
   () => post.value,
@@ -64,7 +66,20 @@ const hasContentChanges = computed(() => {
   return post.value && editContent.value !== post.value.content
 })
 
-async function updatePost(updates: { content?: string; status?: string }) {
+const mediaUrls = computed<string[]>(() => {
+  if (!post.value?.mediaUrls) return []
+  try {
+    return JSON.parse(post.value.mediaUrls)
+  } catch {
+    return []
+  }
+})
+
+function isVideo(url: string) {
+  return url.match(/\.mp4$/i)
+}
+
+async function updatePost(updates: { content?: string; status?: string; mediaUrls?: string[] }) {
   actionLoading.value = true
   try {
     await api(`/posts/${postId.value}`, { method: 'PATCH', body: updates })
@@ -88,6 +103,37 @@ async function approve() {
 
 async function reject() {
   await updatePost({ status: 'rejected' })
+}
+
+async function handleFileUpload(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+
+  uploadLoading.value = true
+  try {
+    const formData = new FormData()
+    formData.append('file', file)
+    const result = await api<{ url: string }>('/media/upload', {
+      method: 'POST',
+      body: formData,
+    })
+    const updated = [...mediaUrls.value, result.url]
+    await api(`/posts/${postId.value}`, { method: 'PATCH', body: { mediaUrls: updated } })
+    await refetch()
+    queryCache.invalidateQueries({ key: ['posts'] })
+    toast.success('Media uploaded')
+  } catch (e: any) {
+    toast.error(e.data?.error || 'Upload failed')
+  } finally {
+    uploadLoading.value = false
+    input.value = ''
+  }
+}
+
+async function removeMedia(url: string) {
+  const updated = mediaUrls.value.filter((u) => u !== url)
+  await updatePost({ mediaUrls: updated })
 }
 
 async function publish() {
@@ -219,6 +265,55 @@ function formatDate(iso: string) {
             </div>
           </div>
 
+          <!-- Save button for pending posts -->
+          <div v-if="post.status === 'pending' && hasContentChanges">
+            <Button variant="outline" size="sm" @click="saveContent" :disabled="actionLoading">
+              Save changes
+            </Button>
+          </div>
+
+          <!-- Media section -->
+          <div v-if="isEditable || mediaUrls.length" class="space-y-3">
+            <label class="block text-sm font-medium">Media</label>
+
+            <!-- Media previews -->
+            <div v-if="mediaUrls.length" class="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <div v-for="url in mediaUrls" :key="url" class="group relative overflow-hidden rounded-lg border border-border/70">
+                <video v-if="isVideo(url)" :src="url" controls class="aspect-video w-full object-cover" />
+                <img v-else :src="url" class="aspect-video w-full object-cover" />
+                <button
+                  v-if="isEditable"
+                  class="absolute right-1.5 top-1.5 rounded-full bg-black/60 p-1 text-white opacity-0 transition group-hover:opacity-100"
+                  @click="removeMedia(url)"
+                >
+                  <X class="size-3.5" />
+                </button>
+              </div>
+            </div>
+
+            <!-- Upload zone -->
+            <div v-if="isEditable" class="relative">
+              <label
+                class="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-border/70 px-4 py-3 text-sm text-muted-foreground transition hover:border-border hover:bg-muted/30"
+                :class="{ 'pointer-events-none opacity-50': uploadLoading }"
+              >
+                <Upload v-if="!uploadLoading" class="size-4" />
+                <span v-if="uploadLoading">Uploading...</span>
+                <span v-else>Upload image or video</span>
+                <input
+                  type="file"
+                  class="hidden"
+                  accept="image/jpeg,image/png,image/gif,video/mp4"
+                  @change="handleFileUpload"
+                  :disabled="uploadLoading"
+                />
+              </label>
+              <p class="mt-1 text-xs text-muted-foreground/70">
+                JPG, PNG, GIF (max 5MB) or MP4 (max 100MB)
+              </p>
+            </div>
+          </div>
+
           <div class="text-xs text-muted-foreground">
             Created {{ formatDate(post.createdAt) }}
             <template v-if="post.postedAt"> · Posted {{ formatDate(post.postedAt) }}</template>
@@ -273,6 +368,12 @@ function formatDate(iso: string) {
             This will post the content to your {{ platformName(post?.platform ?? '') }} account. This action cannot be undone.
           </DialogDescription>
         </DialogHeader>
+        <div v-if="mediaUrls.length" class="flex gap-2 overflow-x-auto py-2">
+          <div v-for="url in mediaUrls" :key="url" class="shrink-0">
+            <video v-if="isVideo(url)" :src="url" class="h-20 rounded" />
+            <img v-else :src="url" class="h-20 rounded" />
+          </div>
+        </div>
         <DialogFooter>
           <Button variant="outline" @click="showPublishDialog = false">Cancel</Button>
           <Button @click="publish">Publish</Button>

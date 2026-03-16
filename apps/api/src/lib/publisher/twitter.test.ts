@@ -20,7 +20,7 @@ describe('twitterPublisher', () => {
 
     const result = await twitterPublisher.publish('Hello world', 'access-token');
     expect(result).toEqual({ success: true, platformPostId: '12345' });
-    expect(mockTweet).toHaveBeenCalledWith('Hello world');
+    expect(mockTweet).toHaveBeenCalledWith({ text: 'Hello world' });
   });
 
   it('returns error on failure', async () => {
