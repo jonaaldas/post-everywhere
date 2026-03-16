@@ -200,10 +200,15 @@ async function duplicatePost() {
   }
 }
 
+const includeMediaInTweet = ref(false)
+
 function openXComposer() {
   if (!post.value) return
-  const text = encodeURIComponent(editContent.value || post.value.content)
-  window.open(`https://x.com/intent/tweet?text=${text}`, '_blank')
+  let text = editContent.value || post.value.content
+  if (includeMediaInTweet.value && mediaUrls.value.length) {
+    text += '\n\n' + mediaUrls.value.join('\n')
+  }
+  window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank')
 }
 
 function platformName(platform: string) {
@@ -324,6 +329,12 @@ function formatDate(iso: string) {
             Created {{ formatDate(post.createdAt) }}
             <template v-if="post.postedAt"> · Posted {{ formatDate(post.postedAt) }}</template>
           </div>
+
+          <!-- Include media URLs checkbox (for X web composer) -->
+          <label v-if="post.platform === 'twitter' && mediaUrls.length" class="flex items-center gap-2 text-sm text-muted-foreground">
+            <input type="checkbox" v-model="includeMediaInTweet" class="size-4 rounded border-border" />
+            Include image URLs in tweet
+          </label>
 
           <!-- Action buttons -->
           <div class="flex items-center gap-2 border-t border-border/70 pt-4">
