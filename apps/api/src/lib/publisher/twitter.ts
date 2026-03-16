@@ -19,8 +19,8 @@ async function uploadMediaToX(accessToken: string, item: MediaItem): Promise<str
     throw new Error(`X media upload failed: ${res.status} ${err}`);
   }
 
-  const data = (await res.json()) as { media: { id: string } };
-  return data.media.id;
+  const data = (await res.json()) as { data: { id: string } };
+  return data.data.id;
 }
 
 export const twitterPublisher: Publisher = {
