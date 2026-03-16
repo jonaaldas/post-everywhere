@@ -27,7 +27,7 @@ async function uploadImageToLinkedIn(
     headers: {
       Authorization: `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
-      'LinkedIn-Version': '202401',
+      'LinkedIn-Version': '202601',
     },
     body: JSON.stringify({
       initializeUploadRequest: {
@@ -120,7 +120,7 @@ export const linkedinPublisher: Publisher = {
         headers: {
           Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
-          'LinkedIn-Version': '202401',
+          'LinkedIn-Version': '202601',
         },
         body: JSON.stringify(postBody),
       });
