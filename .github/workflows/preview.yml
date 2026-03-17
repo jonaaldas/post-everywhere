@@ -64,6 +64,15 @@ jobs:
               exit 1
             fi
 
+            # Set source type to Docker image
+            curl -sf -X POST "${API}/application.update" \
+              -H "${AUTH_HEADER}" \
+              -H "Content-Type: application/json" \
+              -d "{
+                \"applicationId\": \"${APP_ID}\",
+                \"sourceType\": \"docker\"
+              }"
+
             # Set Docker provider (image source)
             curl -sf -X POST "${API}/application.saveDockerProvider" \
               -H "${AUTH_HEADER}" \
@@ -82,10 +91,13 @@ jobs:
               -H "Content-Type: application/json" \
               -d "{\"appName\": \"preview-pr-${PR_NUMBER}\"}")
 
+            PREVIEW_DOMAIN=$(echo "$DOMAIN_RESPONSE" | jq -r 'if type == "string" then . else .host // .domain // empty end')
             echo "Domain response: ${DOMAIN_RESPONSE}"
+            echo "Preview domain: ${PREVIEW_DOMAIN}"
 
-            # Save the app ID for future runs
+            # Save the app ID and domain for future runs
             echo "APP_ID=${APP_ID}" >> "$GITHUB_ENV"
+            echo "PREVIEW_DOMAIN=${PREVIEW_DOMAIN}" >> "$GITHUB_ENV"
           else
             echo "Preview app already exists, updating image..."
             APP_ID=$(echo "$EXISTING_APP" | jq -r '.applicationId')
@@ -114,15 +126,19 @@ jobs:
           echo "Preview deployed!"
 
       - name: Comment on PR
-        if: github.event.action == 'opened'
         uses: actions/github-script@v7
         with:
           script: |
+            const domain = process.env.PREVIEW_DOMAIN;
+            const url = domain ? `http://${domain}` : 'Check Dokploy for the URL';
+            const body = domain
+              ? `Preview deployed: ${url}`
+              : `Preview deployment triggered. Check Dokploy for the URL.`;
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `🚀 Preview deployment is building!\n\nThe preview will be available shortly at a traefik.me domain. Check Dokploy for the exact URL.`
+              body
             })
 
   preview-cleanup:
