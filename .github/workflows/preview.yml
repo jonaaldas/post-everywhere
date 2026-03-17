@@ -89,7 +89,7 @@ jobs:
                 \"registryUrl\": \"\"
               }"
 
-            # Generate a traefik.me domain
+            # Generate a traefik.me domain name
             DOMAIN_RESPONSE=$(curl -sf -X POST "${API}/domain.generateDomain" \
               -H "${AUTH_HEADER}" \
               -H "Content-Type: application/json" \
@@ -98,6 +98,21 @@ jobs:
             PREVIEW_DOMAIN=$(echo "$DOMAIN_RESPONSE" | jq -r 'if type == "string" then . else .host // .domain // empty end')
             echo "Domain response: ${DOMAIN_RESPONSE}"
             echo "Preview domain: ${PREVIEW_DOMAIN}"
+
+            # Attach the domain to the application
+            if [ -n "$PREVIEW_DOMAIN" ]; then
+              curl -sf -X POST "${API}/domain.create" \
+                -H "${AUTH_HEADER}" \
+                -H "Content-Type: application/json" \
+                -d "{
+                  \"host\": \"${PREVIEW_DOMAIN}\",
+                  \"applicationId\": \"${APP_ID}\",
+                  \"https\": false,
+                  \"certificateType\": \"none\",
+                  \"port\": 80
+                }"
+              echo "Domain attached to application"
+            fi
 
             # Save the app ID and domain for future runs
             echo "APP_ID=${APP_ID}" >> "$GITHUB_ENV"
