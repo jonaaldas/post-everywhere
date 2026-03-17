@@ -9,6 +9,16 @@ import type { MediaItem } from '../../lib/publisher/types.js';
 
 const posts = new Hono();
 
+function getFilenameFromUrl(url: string): string | undefined {
+  try {
+    const pathname = new URL(url).pathname;
+    const filename = pathname.split('/').pop();
+    return filename ? decodeURIComponent(filename) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 posts.get('/', async (c) => {
   const userId = (c.get('jwtPayload') as { sub: string }).sub;
   const status = c.req.query('status');
@@ -151,7 +161,7 @@ posts.post('/:id/publish', async (c) => {
           const buffer = Buffer.from(await res.arrayBuffer());
           const mimeType = res.headers.get('content-type') ?? 'image/jpeg';
           const type = mimeType.startsWith('video/') ? 'video' : 'image';
-          mediaItems.push({ url, buffer, mimeType, type });
+          mediaItems.push({ url, buffer, mimeType, type, filename: getFilenameFromUrl(url) });
         }
       }
     } catch {
@@ -183,6 +193,10 @@ posts.post('/:id/publish', async (c) => {
   }
 
   if (!result.success) {
+    if (result.statusCode) {
+      const statusCode = result.statusCode as 400 | 401 | 409 | 429 | 500;
+      return c.json({ error: result.error ?? 'Publishing failed', retryable: result.retryable ?? false }, statusCode);
+    }
     if (result.error?.toLowerCase().includes('rate limit')) {
       return c.json({ error: result.error }, 429);
     }

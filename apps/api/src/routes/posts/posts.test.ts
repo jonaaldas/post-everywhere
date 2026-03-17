@@ -253,6 +253,40 @@ describe('POST /api/posts/:id/publish', () => {
     expect(res.status).toBe(500);
   });
 
+  it('returns 400 for invalid LinkedIn media', async () => {
+    mockGetPost.mockResolvedValue({ id: 'p1', userId: 'u1', status: 'approved', platform: 'linkedin', content: 'Hi' });
+    mockGetSocialConnection.mockResolvedValue({ accessToken: 'enc:token', tokenExpiresAt: null });
+    mockPublish.mockResolvedValue({
+      success: false,
+      error: 'LinkedIn posts cannot mix images and videos',
+      statusCode: 400,
+      retryable: false,
+    });
+
+    const app = createApp();
+    const res = await app.request('/api/posts/p1/publish', { method: 'POST' });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain('cannot mix');
+  });
+
+  it('returns 409 when LinkedIn video is still processing', async () => {
+    mockGetPost.mockResolvedValue({ id: 'p1', userId: 'u1', status: 'approved', platform: 'linkedin', content: 'Hi' });
+    mockGetSocialConnection.mockResolvedValue({ accessToken: 'enc:token', tokenExpiresAt: null });
+    mockPublish.mockResolvedValue({
+      success: false,
+      error: 'LinkedIn accepted the upload but is still processing the video; try publishing again shortly.',
+      statusCode: 409,
+      retryable: true,
+    });
+
+    const app = createApp();
+    const res = await app.request('/api/posts/p1/publish', { method: 'POST' });
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.retryable).toBe(true);
+  });
+
   it('proactively refreshes token when expired and publishes successfully', async () => {
     const expiredAt = new Date(Date.now() - 60_000).toISOString(); // 1 min ago
     mockGetPost.mockResolvedValue({ id: 'p1', userId: 'u1', status: 'approved', platform: 'twitter', content: 'Hello!' });
