@@ -11,6 +11,7 @@ interface SaveInput {
   platform: Platform;
   accessToken: string;
   refreshToken?: string | null;
+  refreshTokenExpiresAt?: string | null;
   platformUserId: string;
   platformUsername: string;
   tokenExpiresAt?: string | null;
@@ -26,6 +27,7 @@ export async function saveSocialConnection(input: SaveInput): Promise<SocialConn
       .set({
         accessToken: input.accessToken,
         refreshToken: input.refreshToken ?? existing.refreshToken,
+        refreshTokenExpiresAt: input.refreshTokenExpiresAt ?? existing.refreshTokenExpiresAt,
         platformUserId: input.platformUserId,
         platformUsername: input.platformUsername,
         tokenExpiresAt: input.tokenExpiresAt ?? existing.tokenExpiresAt,
@@ -65,7 +67,12 @@ export async function deleteSocialConnection(userId: string, platform: Platform)
 export async function updateSocialTokens(
   userId: string,
   platform: Platform,
-  tokens: { accessToken: string; refreshToken?: string | null; tokenExpiresAt?: string | null }
+  tokens: {
+    accessToken: string;
+    refreshToken?: string | null;
+    refreshTokenExpiresAt?: string | null;
+    tokenExpiresAt?: string | null;
+  }
 ): Promise<SocialConnection> {
   const [row] = await db
     .update(socialConnections)

@@ -10,7 +10,17 @@ vi.mock('../client/client.js', () => ({
   },
 }));
 
-import { createPost, getPost, listPosts, updatePostStatus, updatePostContent, duplicatePost } from './posts.js';
+import {
+  createPost,
+  getPost,
+  listPosts,
+  updatePostStatus,
+  updatePostContent,
+  updatePostMediaUrls,
+  updatePostTiktokSettings,
+  updatePostPlatformState,
+  duplicatePost,
+} from './posts.js';
 
 async function seedUser(id = 'u1') {
   await testDb.insert(users).values({ id, email: 'test@test.com', passwordHash: 'hash' });
@@ -39,6 +49,31 @@ describe('db/posts', () => {
       expect(post.platform).toBe('twitter');
       expect(post.status).toBe('pending');
       expect(post.prNumber).toBe(42);
+    });
+
+    it('supports tiktok publishing metadata', async () => {
+      const post = await createPost({
+        id: 'p-tiktok',
+        userId: 'u1',
+        repoFullName: 'user/repo',
+        prNumber: 7,
+        prTitle: 'Ship video flow',
+        prDescription: 'Adds a video flow',
+        platform: 'tiktok',
+        content: 'Watch this ship',
+        status: 'publishing',
+        mediaUrls: JSON.stringify(['https://cdn.example.com/video.mp4']),
+        tiktokSettings: JSON.stringify({ privacyLevel: 'SELF_ONLY', consentConfirmed: true }),
+        tiktokState: JSON.stringify({ publishId: 'pub-1', publishStatus: 'PROCESSING_UPLOAD' }),
+        platformPublishId: 'pub-1',
+        platformPublishStatus: 'PROCESSING_UPLOAD',
+        lastPlatformSyncAt: '2026-03-17T10:00:00Z',
+      });
+
+      expect(post.platform).toBe('tiktok');
+      expect(post.status).toBe('publishing');
+      expect(post.platformPublishId).toBe('pub-1');
+      expect(post.platformPublishStatus).toBe('PROCESSING_UPLOAD');
     });
   });
 
@@ -87,9 +122,10 @@ describe('db/posts', () => {
     it('filters by platform', async () => {
       await createPost({ id: 'p1', userId: 'u1', repoFullName: 'r', prNumber: 1, prTitle: 't', platform: 'twitter', content: 'c', status: 'pending' });
       await createPost({ id: 'p2', userId: 'u1', repoFullName: 'r', prNumber: 1, prTitle: 't', platform: 'linkedin', content: 'c', status: 'pending' });
-      const twitter = await listPosts('u1', { platform: 'twitter' });
-      expect(twitter).toHaveLength(1);
-      expect(twitter[0].platform).toBe('twitter');
+      await createPost({ id: 'p3', userId: 'u1', repoFullName: 'r', prNumber: 1, prTitle: 't', platform: 'tiktok', content: 'c', status: 'publishing' });
+      const tiktok = await listPosts('u1', { platform: 'tiktok' });
+      expect(tiktok).toHaveLength(1);
+      expect(tiktok[0].platform).toBe('tiktok');
     });
 
     it('does not return other users posts', async () => {
@@ -119,6 +155,54 @@ describe('db/posts', () => {
       await createPost({ id: 'p1', userId: 'u1', repoFullName: 'r', prNumber: 1, prTitle: 't', platform: 'twitter', content: 'old', status: 'pending' });
       const updated = await updatePostContent('p1', 'new content');
       expect(updated.content).toBe('new content');
+    });
+  });
+
+  describe('updatePostMediaUrls', () => {
+    it('updates mediaUrls', async () => {
+      await createPost({ id: 'p1', userId: 'u1', repoFullName: 'r', prNumber: 1, prTitle: 't', platform: 'tiktok', content: 'c', status: 'pending' });
+      const updated = await updatePostMediaUrls('p1', ['https://cdn.example.com/video.mp4']);
+      expect(updated.mediaUrls).toBe(JSON.stringify(['https://cdn.example.com/video.mp4']));
+    });
+  });
+
+  describe('updatePostTiktokSettings', () => {
+    it('stores serialized tiktok settings', async () => {
+      await createPost({ id: 'p1', userId: 'u1', repoFullName: 'r', prNumber: 1, prTitle: 't', platform: 'tiktok', content: 'c', status: 'pending' });
+      const updated = await updatePostTiktokSettings('p1', {
+        privacyLevel: 'SELF_ONLY',
+        allowComment: true,
+        allowDuet: false,
+        allowStitch: false,
+        videoCoverTimestampMs: null,
+        brandContentToggle: false,
+        brandOrganicToggle: false,
+        isAigc: true,
+        consentConfirmed: true,
+      });
+
+      expect(updated.tiktokSettings).toContain('"privacyLevel":"SELF_ONLY"');
+      expect(updated.tiktokSettings).toContain('"consentConfirmed":true');
+    });
+  });
+
+  describe('updatePostPlatformState', () => {
+    it('stores platform publish metadata', async () => {
+      await createPost({ id: 'p1', userId: 'u1', repoFullName: 'r', prNumber: 1, prTitle: 't', platform: 'tiktok', content: 'c', status: 'pending' });
+      const updated = await updatePostPlatformState('p1', {
+        status: 'publishing',
+        platformPostId: null,
+        platformPublishId: 'pub-123',
+        platformPublishStatus: 'PROCESSING_UPLOAD',
+        platformPublishError: null,
+        lastPlatformSyncAt: '2026-03-17T12:00:00Z',
+        tiktokState: { publishId: 'pub-123', publishStatus: 'PROCESSING_UPLOAD' },
+      });
+
+      expect(updated.status).toBe('publishing');
+      expect(updated.platformPublishId).toBe('pub-123');
+      expect(updated.platformPublishStatus).toBe('PROCESSING_UPLOAD');
+      expect(updated.tiktokState).toContain('"publishId":"pub-123"');
     });
   });
 

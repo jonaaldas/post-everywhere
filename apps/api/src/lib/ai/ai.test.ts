@@ -18,22 +18,24 @@ import { generatePostDrafts } from './ai.js';
 describe('lib/ai', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('returns twitter and linkedin drafts', async () => {
+  it('returns twitter, linkedin, and tiktok drafts', async () => {
     mockGenerateText.mockResolvedValue({
       text: JSON.stringify({
         twitter: 'Just shipped feature X! #dev',
         linkedin: 'Excited to announce we just shipped feature X. Here is what it does...',
+        tiktok: 'New build just landed. Watch it in action.',
       }),
     });
 
     const result = await generatePostDrafts('Add feature X', 'Implements feature X with tests', 'diff content');
     expect(result.twitter).toBe('Just shipped feature X! #dev');
     expect(result.linkedin).toContain('feature X');
+    expect(result.tiktok).toContain('Watch it');
   });
 
   it('calls generateText with the PR context', async () => {
     mockGenerateText.mockResolvedValue({
-      text: JSON.stringify({ twitter: 'tweet', linkedin: 'post' }),
+      text: JSON.stringify({ twitter: 'tweet', linkedin: 'post', tiktok: 'caption' }),
     });
 
     await generatePostDrafts('Fix bug', 'Fixed a critical bug', 'diff');

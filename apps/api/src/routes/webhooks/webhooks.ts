@@ -80,7 +80,7 @@ webhooks.post('/github', async (c) => {
   const drafts = await generatePostDrafts(pr.title, pr.body || '', diff);
 
   // Create pending posts for each platform
-  for (const platform of ['twitter', 'linkedin'] as const) {
+  for (const platform of ['twitter', 'linkedin', 'tiktok'] as const) {
     await createPost({
       id: crypto.randomUUID(),
       userId: watched.userId,
@@ -94,7 +94,7 @@ webhooks.post('/github', async (c) => {
     });
   }
 
-  return logAndRespond({ ok: true, postsCreated: 2 }, 201);
+  return logAndRespond({ ok: true, postsCreated: 3 }, 201);
 });
 
 export { webhooks };

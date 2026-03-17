@@ -148,7 +148,7 @@ describe('POST /api/webhooks/github', () => {
     expect(res.status).toBe(404);
   });
 
-  it('generates drafts and creates 2 posts on merged PR', async () => {
+  it('generates drafts and creates 3 posts on merged PR', async () => {
     mockVerifyWebhookSignature.mockReturnValue(true);
     mockFindWatchedRepoByName.mockResolvedValue({ userId: 'u1', repoFullName: 'user/repo' });
     mockGetConnection.mockResolvedValue({ personalAccessToken: 'encrypted' });
@@ -156,6 +156,7 @@ describe('POST /api/webhooks/github', () => {
     mockGeneratePostDrafts.mockResolvedValue({
       twitter: 'Tweet about feature X',
       linkedin: 'LinkedIn post about feature X',
+      tiktok: 'TikTok caption about feature X',
     });
     mockCreatePost.mockResolvedValue({});
 
@@ -170,7 +171,7 @@ describe('POST /api/webhooks/github', () => {
       body: makePayload(),
     });
     expect(res.status).toBe(201);
-    expect(mockCreatePost).toHaveBeenCalledTimes(2);
+    expect(mockCreatePost).toHaveBeenCalledTimes(3);
 
     // Check twitter post
     const twitterCall = mockCreatePost.mock.calls.find(
@@ -185,5 +186,11 @@ describe('POST /api/webhooks/github', () => {
       (c: unknown[]) => (c[0] as Record<string, unknown>).platform === 'linkedin'
     );
     expect(linkedinCall).toBeDefined();
+
+    const tiktokCall = mockCreatePost.mock.calls.find(
+      (c: unknown[]) => (c[0] as Record<string, unknown>).platform === 'tiktok'
+    );
+    expect(tiktokCall).toBeDefined();
+    expect((tiktokCall![0] as Record<string, unknown>).content).toBe('TikTok caption about feature X');
   });
 });

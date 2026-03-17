@@ -3,6 +3,7 @@ import { and, desc, eq, notInArray } from 'drizzle-orm';
 
 import { db } from '../client/client.js';
 import { posts, type Post, type NewPost } from '../schema.js';
+import type { TiktokSettings, TiktokState } from '../../lib/tiktok/types.js';
 
 export async function createPost(data: NewPost): Promise<Post> {
   const [row] = await db.insert(posts).values(data).returning();
@@ -56,6 +57,47 @@ export async function updatePostMediaUrls(id: string, mediaUrls: string[]): Prom
     .set({ mediaUrls: JSON.stringify(mediaUrls) })
     .where(eq(posts.id, id))
     .returning();
+  return row;
+}
+
+export async function updatePostTiktokSettings(id: string, settings: TiktokSettings): Promise<Post> {
+  const [row] = await db
+    .update(posts)
+    .set({ tiktokSettings: JSON.stringify(settings) })
+    .where(eq(posts.id, id))
+    .returning();
+  return row;
+}
+
+export async function updatePostPlatformState(
+  id: string,
+  data: {
+    status?: Post['status'];
+    platformPostId?: string | null;
+    platformPublishId?: string | null;
+    platformPublishStatus?: string | null;
+    platformPublishError?: string | null;
+    lastPlatformSyncAt?: string | null;
+    tiktokState?: TiktokState;
+  }
+): Promise<Post> {
+  const values: Partial<Post> = {
+    platformPostId: data.platformPostId,
+    platformPublishId: data.platformPublishId,
+    platformPublishStatus: data.platformPublishStatus,
+    platformPublishError: data.platformPublishError,
+    lastPlatformSyncAt: data.lastPlatformSyncAt,
+    tiktokState: data.tiktokState ? JSON.stringify(data.tiktokState) : undefined,
+  };
+
+  if (data.status) {
+    values.status = data.status;
+    if (data.status === 'posted') {
+      values.postedAt = new Date().toISOString();
+    }
+  }
+
+  const [row] = await db.update(posts).set(values).where(eq(posts.id, id)).returning();
   return row;
 }
 

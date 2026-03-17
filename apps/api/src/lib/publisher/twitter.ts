@@ -24,7 +24,7 @@ async function uploadMediaToX(accessToken: string, item: MediaItem): Promise<str
 }
 
 export const twitterPublisher: Publisher = {
-  async publish(content: string, accessToken: string, media?: MediaItem[]): Promise<PublishResult> {
+  async publish({ content, accessToken, media }: { content: string; accessToken: string; media?: MediaItem[] }): Promise<PublishResult> {
     try {
       const mediaIds: string[] = [];
 
@@ -44,7 +44,7 @@ export const twitterPublisher: Publisher = {
       }
 
       const { data } = await client.v2.tweet(tweetPayload as any);
-      return { success: true, platformPostId: data.id };
+      return { success: true, state: 'posted', platformPostId: data.id };
     } catch (err: any) {
       const code = err.code ?? err.status ?? err.statusCode;
       if (code === 401) {

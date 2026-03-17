@@ -29,6 +29,13 @@
       "when": 1773661174107,
       "tag": "0003_slippery_madelyne_pryor",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1773769430979,
+      "tag": "0004_certain_skin",
+      "breakpoints": true
     }
   ]
 }

@@ -18,15 +18,19 @@ describe('twitterPublisher', () => {
   it('publishes successfully', async () => {
     mockTweet.mockResolvedValue({ data: { id: '12345' } });
 
-    const result = await twitterPublisher.publish('Hello world', 'access-token');
-    expect(result).toEqual({ success: true, platformPostId: '12345' });
+    const result = await twitterPublisher.publish({
+      content: 'Hello world',
+      accessToken: 'access-token',
+      postId: 'post-1',
+    });
+    expect(result).toEqual({ success: true, state: 'posted', platformPostId: '12345' });
     expect(mockTweet).toHaveBeenCalledWith({ text: 'Hello world' });
   });
 
   it('returns error on failure', async () => {
     mockTweet.mockRejectedValue(new Error('Something went wrong'));
 
-    const result = await twitterPublisher.publish('Hello', 'token');
+    const result = await twitterPublisher.publish({ content: 'Hello', accessToken: 'token', postId: 'post-1' });
     expect(result).toEqual({ success: false, error: 'Something went wrong' });
   });
 
@@ -35,7 +39,7 @@ describe('twitterPublisher', () => {
     (err as any).code = 429;
     mockTweet.mockRejectedValue(err);
 
-    const result = await twitterPublisher.publish('Hello', 'token');
+    const result = await twitterPublisher.publish({ content: 'Hello', accessToken: 'token', postId: 'post-1' });
     expect(result.success).toBe(false);
     expect(result.error).toContain('Rate limit');
   });
@@ -45,7 +49,7 @@ describe('twitterPublisher', () => {
     (err as any).code = 401;
     mockTweet.mockRejectedValue(err);
 
-    const result = await twitterPublisher.publish('Hello', 'token');
+    const result = await twitterPublisher.publish({ content: 'Hello', accessToken: 'token', postId: 'post-1' });
     expect(result.success).toBe(false);
     expect(result.error).toContain('expired');
   });

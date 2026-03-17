@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { Hono } from 'hono';
 
 import { env } from '../../env.js';
@@ -7,7 +7,13 @@ import {
   getSocialConnection,
   saveSocialConnection,
   deleteSocialConnection,
+  updateSocialTokens,
 } from '../../db/social/social.js';
+import { getTiktokCreatorInfo } from '../../lib/tiktok/client.js';
+import { buildTiktokAuthUrl, exchangeTiktokCode } from '../../lib/tiktok/oauth.js';
+import { verifyTiktokProxyEgress } from '../../lib/tiktok/proxy.js';
+import { decrypt } from '../../lib/crypto/crypto.js';
+import { refreshAccessToken } from '../../lib/publisher/refresh.js';
 
 // --- OAuth state store (in-memory, 10-min TTL) ---
 
@@ -37,7 +43,7 @@ function consumeState(state: string): OAuthState | undefined {
 
 // --- Helpers ---
 
-const PLATFORMS = ['twitter', 'linkedin'] as const;
+const PLATFORMS = ['twitter', 'linkedin', 'tiktok'] as const;
 type Platform = (typeof PLATFORMS)[number];
 
 function isPlatform(v: string): v is Platform {
@@ -46,6 +52,38 @@ function isPlatform(v: string): v is Platform {
 
 function getCallbackUrl(platform: string): string {
   return `${env.appBaseUrl}/api/social/${platform}/callback`;
+}
+
+function buildPkceChallenge(codeVerifier: string): string {
+  return createHash('sha256').update(codeVerifier).digest('base64url');
+}
+
+async function getValidTikTokAccessToken(connection: {
+  accessToken: string;
+  refreshToken: string | null;
+  tokenExpiresAt: string | null;
+}, userId: string): Promise<string> {
+  const REFRESH_BUFFER_MS = 5 * 60 * 1000;
+  if (
+    !connection.tokenExpiresAt ||
+    new Date(connection.tokenExpiresAt).getTime() >= Date.now() + REFRESH_BUFFER_MS
+  ) {
+    return decrypt(connection.accessToken);
+  }
+
+  const refreshToken = connection.refreshToken ? decrypt(connection.refreshToken) : null;
+  const refreshed = await refreshAccessToken('tiktok', refreshToken);
+  await updateSocialTokens(userId, 'tiktok', {
+    accessToken: encrypt(refreshed.accessToken),
+    refreshToken: refreshed.refreshToken ? encrypt(refreshed.refreshToken) : undefined,
+    refreshTokenExpiresAt: refreshed.refreshExpiresIn
+      ? new Date(Date.now() + refreshed.refreshExpiresIn * 1000).toISOString()
+      : null,
+    tokenExpiresAt: refreshed.expiresIn
+      ? new Date(Date.now() + refreshed.expiresIn * 1000).toISOString()
+      : null,
+  });
+  return refreshed.accessToken;
 }
 
 // --- Public routes (OAuth callbacks — mounted before JWT middleware in index.ts) ---
@@ -78,6 +116,7 @@ socialCallback.get('/:platform/callback', async (c) => {
     let platformUserId: string;
     let platformUsername: string;
     let tokenExpiresAt: string | null = null;
+    let refreshTokenExpiresAt: string | null = null;
 
     if (platform === 'twitter') {
       const tokenRes = await fetch('https://api.x.com/2/oauth2/token', {
@@ -120,7 +159,7 @@ socialCallback.get('/:platform/callback', async (c) => {
       const me = (await meRes.json()) as { data: { id: string; username: string } };
       platformUserId = me.data.id;
       platformUsername = me.data.username;
-    } else {
+    } else if (platform === 'linkedin') {
       const tokenRes = await fetch('https://www.linkedin.com/oauth/v2/accessToken', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -159,6 +198,28 @@ socialCallback.get('/:platform/callback', async (c) => {
       const me = (await meRes.json()) as { sub: string; name: string };
       platformUserId = me.sub;
       platformUsername = me.name;
+    } else {
+      const sessionId = randomUUID();
+      const tokens = await exchangeTiktokCode({
+        code,
+        codeVerifier: oauthState.codeVerifier,
+        redirectUri: getCallbackUrl('tiktok'),
+        sessionId,
+      });
+
+      accessToken = tokens.accessToken;
+      refreshToken = tokens.refreshToken ?? null;
+      if (tokens.expiresIn) {
+        tokenExpiresAt = new Date(Date.now() + tokens.expiresIn * 1000).toISOString();
+      }
+      if (tokens.refreshExpiresIn) {
+        refreshTokenExpiresAt = new Date(Date.now() + tokens.refreshExpiresIn * 1000).toISOString();
+      }
+
+      await verifyTiktokProxyEgress(sessionId);
+      const creatorInfo = await getTiktokCreatorInfo(accessToken, sessionId);
+      platformUserId = creatorInfo.creatorUsername;
+      platformUsername = creatorInfo.creatorUsername;
     }
 
     await saveSocialConnection({
@@ -166,6 +227,7 @@ socialCallback.get('/:platform/callback', async (c) => {
       platform,
       accessToken: encrypt(accessToken),
       refreshToken: refreshToken ? encrypt(refreshToken) : null,
+      refreshTokenExpiresAt,
       platformUserId,
       platformUsername,
       tokenExpiresAt,
@@ -223,7 +285,7 @@ social.get('/:platform/auth', async (c) => {
       code_challenge_method: 'plain',
     });
     authUrl = `https://x.com/i/oauth2/authorize?${params}`;
-  } else {
+  } else if (platform === 'linkedin') {
     const params = new URLSearchParams({
       response_type: 'code',
       client_id: env.linkedinClientId,
@@ -232,9 +294,34 @@ social.get('/:platform/auth', async (c) => {
       state,
     });
     authUrl = `https://www.linkedin.com/oauth/v2/authorization?${params}`;
+  } else {
+    authUrl = buildTiktokAuthUrl({
+      state,
+      codeChallenge: buildPkceChallenge(codeVerifier),
+      redirectUri: getCallbackUrl('tiktok'),
+    });
   }
 
   return c.json({ authUrl });
+});
+
+social.get('/tiktok/creator-info', async (c) => {
+  const userId = (c.get('jwtPayload') as { sub: string }).sub;
+  const connection = await getSocialConnection(userId, 'tiktok');
+
+  if (!connection) {
+    return c.json({ error: 'tiktok not connected' }, 404);
+  }
+
+  try {
+    const sessionId = randomUUID();
+    const accessToken = await getValidTikTokAccessToken(connection, userId);
+    const proxy = await verifyTiktokProxyEgress(sessionId);
+    const creatorInfo = await getTiktokCreatorInfo(accessToken, sessionId);
+    return c.json({ creatorInfo, proxy });
+  } catch (err: any) {
+    return c.json({ error: err.message ?? 'Failed to load TikTok creator info' }, 500);
+  }
 });
 
 social.delete('/:platform', async (c) => {

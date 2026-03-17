@@ -45,6 +45,7 @@ export function createTestDb() {
       platform TEXT NOT NULL,
       access_token TEXT NOT NULL,
       refresh_token TEXT,
+      refresh_token_expires_at TEXT,
       platform_user_id TEXT NOT NULL,
       platform_username TEXT NOT NULL,
       token_expires_at TEXT,
@@ -62,6 +63,13 @@ export function createTestDb() {
       content TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'pending',
       media_urls TEXT,
+      platform_post_id TEXT,
+      platform_publish_id TEXT,
+      platform_publish_status TEXT,
+      platform_publish_error TEXT,
+      last_platform_sync_at TEXT,
+      tiktok_settings TEXT,
+      tiktok_state TEXT,
       posted_at TEXT,
       created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP)
     );

@@ -22,8 +22,12 @@ describe('linkedinPublisher', () => {
       json: () => Promise.resolve({ id: 'urn:li:share:456' }),
     });
 
-    const result = await linkedinPublisher.publish('Hello LinkedIn', 'access-token');
-    expect(result).toEqual({ success: true, platformPostId: 'urn:li:share:456' });
+    const result = await linkedinPublisher.publish({
+      content: 'Hello LinkedIn',
+      accessToken: 'access-token',
+      postId: 'post-1',
+    });
+    expect(result).toEqual({ success: true, state: 'posted', platformPostId: 'urn:li:share:456' });
   });
 
   it('returns error on failure', async () => {
@@ -37,7 +41,7 @@ describe('linkedinPublisher', () => {
       json: () => Promise.resolve({ message: 'Internal error' }),
     });
 
-    const result = await linkedinPublisher.publish('Hello', 'token');
+    const result = await linkedinPublisher.publish({ content: 'Hello', accessToken: 'token', postId: 'post-1' });
     expect(result.success).toBe(false);
     expect(result.error).toBeDefined();
   });
@@ -53,7 +57,7 @@ describe('linkedinPublisher', () => {
       json: () => Promise.resolve({ message: 'Rate limited' }),
     });
 
-    const result = await linkedinPublisher.publish('Hello', 'token');
+    const result = await linkedinPublisher.publish({ content: 'Hello', accessToken: 'token', postId: 'post-1' });
     expect(result.success).toBe(false);
     expect(result.error).toContain('Rate limit');
   });
@@ -65,7 +69,7 @@ describe('linkedinPublisher', () => {
       json: () => Promise.resolve({ message: 'Unauthorized' }),
     });
 
-    const result = await linkedinPublisher.publish('Hello', 'token');
+    const result = await linkedinPublisher.publish({ content: 'Hello', accessToken: 'token', postId: 'post-1' });
     expect(result.success).toBe(false);
     expect(result.error).toContain('expired');
   });

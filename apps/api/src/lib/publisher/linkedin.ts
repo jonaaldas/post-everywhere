@@ -64,7 +64,7 @@ async function uploadImageToLinkedIn(
 }
 
 export const linkedinPublisher: Publisher = {
-  async publish(content: string, accessToken: string, media?: MediaItem[]): Promise<PublishResult> {
+  async publish({ content, accessToken, media }: { content: string; accessToken: string; media?: MediaItem[] }): Promise<PublishResult> {
     try {
       const authorUrn = await getPersonUrn(accessToken);
 
@@ -138,7 +138,7 @@ export const linkedinPublisher: Publisher = {
 
       const body = (await res.json().catch(() => ({}))) as { id?: string };
       const postId = body.id ?? res.headers.get('x-restli-id') ?? undefined;
-      return { success: true, platformPostId: postId };
+      return { success: true, state: 'posted', platformPostId: postId };
     } catch (err: any) {
       if (err.status === 401) {
         return { success: false, error: 'Invalid or expired token — please reconnect' };

@@ -1,10 +1,12 @@
 import type { Publisher } from './types.js';
 import { twitterPublisher } from './twitter.js';
 import { linkedinPublisher } from './linkedin.js';
+import { tiktokPublisher } from './tiktok.js';
 
 const publishers: Record<string, Publisher> = {
   twitter: twitterPublisher,
   linkedin: linkedinPublisher,
+  tiktok: tiktokPublisher,
 };
 
 export function getPublisher(platform: string): Publisher {

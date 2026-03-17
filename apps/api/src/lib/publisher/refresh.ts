@@ -1,9 +1,11 @@
 import { env } from '../../env.js';
+import { refreshTiktokAccessToken } from '../tiktok/oauth.js';
 
 interface RefreshResult {
   accessToken: string;
   refreshToken?: string;
   expiresIn?: number;
+  refreshExpiresIn?: number;
 }
 
 export async function refreshAccessToken(
@@ -43,6 +45,10 @@ export async function refreshAccessToken(
       refreshToken: tokens.refresh_token,
       expiresIn: tokens.expires_in,
     };
+  }
+
+  if (platform === 'tiktok') {
+    return refreshTiktokAccessToken(refreshToken, crypto.randomUUID());
   }
 
   // LinkedIn
