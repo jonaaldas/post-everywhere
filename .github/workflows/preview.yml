@@ -1,0 +1,189 @@
+name: Preview Deployment
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+
+jobs:
+  preview-deploy:
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push preview image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/post-everywhere:pr-${{ github.event.pull_request.number }}
+
+      - name: Deploy preview to Dokploy
+        env:
+          DOKPLOY_BASE_URL: ${{ secrets.DOKPLOY_BASE_URL }}
+          DOKPLOY_API_TOKEN: ${{ secrets.DOKPLOY_API_TOKEN }}
+          DOKPLOY_ENVIRONMENT_ID: ${{ secrets.DOKPLOY_ENVIRONMENT_ID }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          API="${DOKPLOY_BASE_URL}/api"
+          AUTH_HEADER="x-api-key: ${DOKPLOY_API_TOKEN}"
+          APP_NAME="preview-pr-${PR_NUMBER}"
+          DOCKER_IMAGE="${DOCKERHUB_USERNAME}/post-everywhere:pr-${PR_NUMBER}"
+
+          # Check if preview app already exists by listing project apps
+          EXISTING_APP=$(curl -sf -H "${AUTH_HEADER}" \
+            "${API}/application.one?applicationId=${APP_NAME}" 2>/dev/null || echo "")
+
+          if [ -z "$EXISTING_APP" ] || echo "$EXISTING_APP" | grep -q '"error"'; then
+            echo "Creating new preview app..."
+
+            # Create the application
+            CREATE_RESPONSE=$(curl -sf -X POST "${API}/application.create" \
+              -H "${AUTH_HEADER}" \
+              -H "Content-Type: application/json" \
+              -d "{
+                \"name\": \"Preview PR #${PR_NUMBER}\",
+                \"appName\": \"preview-pr-${PR_NUMBER}\",
+                \"environmentId\": \"${DOKPLOY_ENVIRONMENT_ID}\"
+              }")
+
+            echo "Create response: ${CREATE_RESPONSE}"
+            APP_ID=$(echo "$CREATE_RESPONSE" | jq -r '.applicationId // .appId // empty')
+
+            if [ -z "$APP_ID" ]; then
+              echo "Failed to create application"
+              exit 1
+            fi
+
+            # Set Docker provider (image source)
+            curl -sf -X POST "${API}/application.saveDockerProvider" \
+              -H "${AUTH_HEADER}" \
+              -H "Content-Type: application/json" \
+              -d "{
+                \"applicationId\": \"${APP_ID}\",
+                \"dockerImage\": \"${DOCKER_IMAGE}\",
+                \"username\": \"${DOCKERHUB_USERNAME}\",
+                \"password\": \"${DOCKERHUB_TOKEN}\",
+                \"registryUrl\": \"\"
+              }"
+
+            # Generate a traefik.me domain
+            DOMAIN_RESPONSE=$(curl -sf -X POST "${API}/domain.generateDomain" \
+              -H "${AUTH_HEADER}" \
+              -H "Content-Type: application/json" \
+              -d "{\"appName\": \"preview-pr-${PR_NUMBER}\"}")
+
+            echo "Domain response: ${DOMAIN_RESPONSE}"
+
+            # Save the app ID for future runs
+            echo "APP_ID=${APP_ID}" >> "$GITHUB_ENV"
+          else
+            echo "Preview app already exists, updating image..."
+            APP_ID=$(echo "$EXISTING_APP" | jq -r '.applicationId')
+            echo "APP_ID=${APP_ID}" >> "$GITHUB_ENV"
+
+            # Update Docker image
+            curl -sf -X POST "${API}/application.saveDockerProvider" \
+              -H "${AUTH_HEADER}" \
+              -H "Content-Type: application/json" \
+              -d "{
+                \"applicationId\": \"${APP_ID}\",
+                \"dockerImage\": \"${DOCKER_IMAGE}\",
+                \"username\": \"${DOCKERHUB_USERNAME}\",
+                \"password\": \"${DOCKERHUB_TOKEN}\",
+                \"registryUrl\": \"\"
+              }"
+          fi
+
+          # Deploy the application
+          echo "Deploying..."
+          curl -sf -X POST "${API}/application.deploy" \
+            -H "${AUTH_HEADER}" \
+            -H "Content-Type: application/json" \
+            -d "{\"applicationId\": \"${APP_ID}\"}"
+
+          echo "Preview deployed!"
+
+      - name: Comment on PR
+        if: github.event.action == 'opened'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `🚀 Preview deployment is building!\n\nThe preview will be available shortly at a traefik.me domain. Check Dokploy for the exact URL.`
+            })
+
+  preview-cleanup:
+    if: github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Find and delete preview app
+        env:
+          DOKPLOY_BASE_URL: ${{ secrets.DOKPLOY_BASE_URL }}
+          DOKPLOY_API_TOKEN: ${{ secrets.DOKPLOY_API_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          API="${DOKPLOY_BASE_URL}/api"
+          AUTH_HEADER="x-api-key: ${DOKPLOY_API_TOKEN}"
+
+          # Find the preview app - list all projects and search for our app
+          ALL_PROJECTS=$(curl -sf -H "${AUTH_HEADER}" "${API}/project.all")
+
+          # Find applicationId by appName
+          APP_ID=$(echo "$ALL_PROJECTS" | jq -r '
+            [.[].environments[].applications[] |
+              select(.appName == "preview-pr-'"${PR_NUMBER}"'")] |
+            first | .applicationId // empty')
+
+          if [ -n "$APP_ID" ]; then
+            echo "Deleting preview app ${APP_ID}..."
+            curl -sf -X POST "${API}/application.delete" \
+              -H "${AUTH_HEADER}" \
+              -H "Content-Type: application/json" \
+              -d "{\"applicationId\": \"${APP_ID}\"}"
+            echo "Preview app deleted."
+          else
+            echo "No preview app found for PR #${PR_NUMBER}"
+          fi
+
+      - name: Remove preview Docker image
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          # Get Docker Hub token
+          TOKEN=$(curl -sf -X POST "https://hub.docker.com/v2/users/login" \
+            -H "Content-Type: application/json" \
+            -d "{\"username\": \"${DOCKERHUB_USERNAME}\", \"password\": \"${DOCKERHUB_TOKEN}\"}" \
+            | jq -r '.token // empty')
+
+          if [ -n "$TOKEN" ]; then
+            curl -sf -X DELETE \
+              "https://hub.docker.com/v2/repositories/${DOCKERHUB_USERNAME}/post-everywhere/tags/pr-${PR_NUMBER}" \
+              -H "Authorization: Bearer ${TOKEN}"
+            echo "Docker image tag pr-${PR_NUMBER} deleted."
+          fi
+
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `🧹 Preview deployment for PR #${context.issue.number} has been cleaned up.`
+            })
