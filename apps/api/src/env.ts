@@ -24,6 +24,14 @@ function parsePort(value: string | undefined): number {
   return port;
 }
 
+function parseBoolean(value: string | undefined, defaultValue = false): boolean {
+  if (!value) {
+    return defaultValue;
+  }
+
+  return ['1', 'true', 'yes', 'on'].includes(value.trim().toLowerCase());
+}
+
 export const env = {
   nodeEnv: process.env.NODE_ENV?.trim() ?? 'development',
   port: parsePort(process.env.PORT),
@@ -39,6 +47,16 @@ export const env = {
   twitterClientSecret: process.env.TWITTER_CLIENT_SECRET?.trim() ?? '',
   linkedinClientId: process.env.LINKEDIN_CLIENT_ID?.trim() ?? '',
   linkedinClientSecret: process.env.LINKEDIN_CLIENT_SECRET?.trim() ?? '',
+  tiktokClientKey: process.env.TIKTOK_CLIENT_KEY?.trim() ?? '',
+  tiktokClientSecret: process.env.TIKTOK_CLIENT_SECRET?.trim() ?? '',
+  tiktokProxyRequired: parseBoolean(process.env.TIKTOK_PROXY_REQUIRED, false),
+  evomiProxyHost: process.env.EVOMI_PROXY_HOST?.trim() ?? '',
+  evomiProxyPort: process.env.EVOMI_PROXY_PORT?.trim() ?? '',
+  evomiProxyUsername: process.env.EVOMI_PROXY_USERNAME?.trim() ?? '',
+  evomiProxyPassword: process.env.EVOMI_PROXY_PASSWORD?.trim() ?? '',
+  evomiProxyCountry: process.env.EVOMI_PROXY_COUNTRY?.trim() ?? 'US',
+  evomiProxySessionLifetimeMinutes: Number(process.env.EVOMI_PROXY_SESSION_LIFETIME_MINUTES?.trim() ?? '30'),
+  tiktokProxyVerifyUrl: process.env.TIKTOK_PROXY_VERIFY_URL?.trim() ?? 'https://ip.evomi.com/s',
   redisUrl: process.env.REDIS_URL?.trim() ?? 'redis://localhost:6379',
   // R2 media storage (optional — feature disabled when absent)
   r2AccountId: process.env.R2_ACCOUNT_ID?.trim() ?? '',

@@ -34,6 +34,7 @@ describe('db/social', () => {
         platform: 'twitter',
         accessToken: 'enc-access',
         refreshToken: 'enc-refresh',
+        refreshTokenExpiresAt: '2026-08-01T00:00:00Z',
         platformUserId: 'tw-123',
         platformUsername: 'testuser',
         tokenExpiresAt: '2026-04-01T00:00:00Z',
@@ -43,6 +44,7 @@ describe('db/social', () => {
       expect(conn.platform).toBe('twitter');
       expect(conn.accessToken).toBe('enc-access');
       expect(conn.platformUsername).toBe('testuser');
+      expect(conn.refreshTokenExpiresAt).toBe('2026-08-01T00:00:00Z');
     });
 
     it('upserts on same userId+platform', async () => {
@@ -115,6 +117,7 @@ describe('db/social', () => {
         platform: 'twitter',
         accessToken: 'old-access',
         refreshToken: 'old-refresh',
+        refreshTokenExpiresAt: '2026-06-01T00:00:00Z',
         platformUserId: 'tw-123',
         platformUsername: 'testuser',
         tokenExpiresAt: '2026-03-01T00:00:00Z',
@@ -123,11 +126,13 @@ describe('db/social', () => {
       const updated = await updateSocialTokens('u1', 'twitter', {
         accessToken: 'new-access',
         refreshToken: 'new-refresh',
+        refreshTokenExpiresAt: '2026-09-01T00:00:00Z',
         tokenExpiresAt: '2026-05-01T00:00:00Z',
       });
 
       expect(updated.accessToken).toBe('new-access');
       expect(updated.refreshToken).toBe('new-refresh');
+      expect(updated.refreshTokenExpiresAt).toBe('2026-09-01T00:00:00Z');
       expect(updated.tokenExpiresAt).toBe('2026-05-01T00:00:00Z');
     });
   });

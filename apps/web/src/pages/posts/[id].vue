@@ -14,6 +14,14 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { api } from '@/composables/useApi'
+import {
+  canPublishTiktok,
+  createDefaultTiktokSettings,
+  parseTiktokJson,
+  type WebTiktokCreatorInfo,
+  type WebTiktokSettings,
+  type WebTiktokState,
+} from '@/lib/tiktok'
 import { useQueryCache } from '@pinia/colada'
 
 interface Post {
@@ -22,10 +30,12 @@ interface Post {
   prNumber: number
   prTitle: string
   prDescription: string | null
-  platform: 'twitter' | 'linkedin'
+  platform: 'twitter' | 'linkedin' | 'tiktok'
   content: string
-  status: 'pending' | 'approved' | 'posted' | 'rejected' | 'archived'
+  status: 'pending' | 'approved' | 'publishing' | 'posted' | 'rejected' | 'archived'
   mediaUrls: string | null
+  tiktokSettings: string | null
+  tiktokState: string | null
   postedAt: string | null
   createdAt: string
 }
@@ -48,11 +58,22 @@ const editContent = ref('')
 const showPublishDialog = ref(false)
 const actionLoading = ref(false)
 const uploadLoading = ref(false)
+const tiktokCreatorInfo = ref<WebTiktokCreatorInfo | null>(null)
+const tiktokProxy = ref<{ country: string; exitIp: string | null; verifiedAt: string | null } | null>(null)
+const tiktokSettings = ref<WebTiktokSettings | null>(null)
+let tiktokStatusTimer: number | null = null
 
 watch(
   () => post.value,
   (p) => {
-    if (p) editContent.value = p.content
+    if (p) {
+      editContent.value = p.content
+      if (p.platform === 'tiktok') {
+        tiktokSettings.value =
+          parseTiktokJson<WebTiktokSettings>(p.tiktokSettings) ??
+          createDefaultTiktokSettings(tiktokCreatorInfo.value)
+      }
+    }
   },
   { immediate: true },
 )
@@ -79,7 +100,56 @@ function isVideo(url: string) {
   return url.match(/\.mp4$/i)
 }
 
-async function updatePost(updates: { content?: string; status?: string; mediaUrls?: string[] }) {
+const parsedTiktokState = computed(() => parseTiktokJson<WebTiktokState>(post.value?.tiktokState))
+
+const canPublishCurrentPost = computed(() => {
+  if (post.value?.platform !== 'tiktok') {
+    return true
+  }
+
+  return canPublishTiktok({
+    mediaUrls: mediaUrls.value,
+    settings: tiktokSettings.value,
+    creatorInfo: tiktokCreatorInfo.value,
+  })
+})
+
+async function loadTiktokCreatorInfo(showToast = false) {
+  if (post.value?.platform !== 'tiktok') return
+
+  try {
+    const result = await api<{
+      creatorInfo: WebTiktokCreatorInfo
+      proxy: { country: string; exitIp: string | null; verifiedAt: string | null }
+    }>('/social/tiktok/creator-info')
+    tiktokCreatorInfo.value = result.creatorInfo
+    tiktokProxy.value = result.proxy
+    if (!tiktokSettings.value) {
+      tiktokSettings.value = createDefaultTiktokSettings(result.creatorInfo)
+    }
+  } catch (e: any) {
+    if (showToast) {
+      toast.error(e.data?.error || 'Failed to load TikTok creator info')
+    }
+  }
+}
+
+watch(
+  () => post.value?.platform,
+  (platform) => {
+    if (platform === 'tiktok') {
+      loadTiktokCreatorInfo()
+    }
+  },
+  { immediate: true },
+)
+
+async function updatePost(updates: {
+  content?: string
+  status?: string
+  mediaUrls?: string[]
+  tiktokSettings?: WebTiktokSettings
+}) {
   actionLoading.value = true
   try {
     await api(`/posts/${postId.value}`, { method: 'PATCH', body: updates })
@@ -97,6 +167,11 @@ async function saveContent() {
   await updatePost({ content: editContent.value })
 }
 
+async function saveTiktokSettings() {
+  if (!tiktokSettings.value) return
+  await updatePost({ tiktokSettings: tiktokSettings.value })
+}
+
 async function approve() {
   await updatePost({ status: 'approved' })
 }
@@ -110,6 +185,12 @@ async function handleFileUpload(event: Event) {
   const file = input.files?.[0]
   if (!file) return
 
+  if (post.value?.platform === 'tiktok' && file.type !== 'video/mp4') {
+    toast.error('TikTok posts require a single MP4 video')
+    input.value = ''
+    return
+  }
+
   uploadLoading.value = true
   try {
     const formData = new FormData()
@@ -118,7 +199,7 @@ async function handleFileUpload(event: Event) {
       method: 'POST',
       body: formData,
     })
-    const updated = [...mediaUrls.value, result.url]
+    const updated = post.value?.platform === 'tiktok' ? [result.url] : [...mediaUrls.value, result.url]
     await api(`/posts/${postId.value}`, { method: 'PATCH', body: { mediaUrls: updated } })
     await refetch()
     queryCache.invalidateQueries({ key: ['posts'] })
@@ -140,10 +221,13 @@ async function publish() {
   actionLoading.value = true
   showPublishDialog.value = false
   try {
+    if (post.value?.platform === 'tiktok' && tiktokSettings.value) {
+      await api(`/posts/${postId.value}`, { method: 'PATCH', body: { tiktokSettings: tiktokSettings.value } })
+    }
     await api(`/posts/${postId.value}/publish`, { method: 'POST' })
     await refetch()
     queryCache.invalidateQueries({ key: ['posts'] })
-    toast.success('Published successfully!')
+    toast.success(post.value?.platform === 'tiktok' ? 'TikTok publish submitted' : 'Published successfully!')
   } catch (e: any) {
     const status = e.status || e.statusCode
     if (status === 401) {
@@ -155,6 +239,20 @@ async function publish() {
     }
   } finally {
     actionLoading.value = false
+  }
+}
+
+async function refreshTiktokStatus(showToast = false) {
+  if (post.value?.platform !== 'tiktok') return
+
+  try {
+    await api(`/posts/${postId.value}/refresh-status`, { method: 'POST' })
+    await refetch()
+    queryCache.invalidateQueries({ key: ['posts'] })
+  } catch (e: any) {
+    if (showToast) {
+      toast.error(e.data?.error || 'Failed to refresh TikTok status')
+    }
   }
 }
 
@@ -212,17 +310,49 @@ function openXComposer() {
 }
 
 function platformName(platform: string) {
-  return platform === 'twitter' ? 'X' : 'LinkedIn'
+  if (platform === 'twitter') return 'X'
+  if (platform === 'linkedin') return 'LinkedIn'
+  return 'TikTok'
 }
 
 function statusVariant(status: string) {
   switch (status) {
     case 'posted': return 'default' as const
+    case 'publishing': return 'secondary' as const
     case 'approved': return 'secondary' as const
     case 'rejected': return 'destructive' as const
     default: return 'outline' as const
   }
 }
+
+function platformBadgeClass(platform: string) {
+  if (platform === 'twitter') return 'border-black bg-black text-white'
+  if (platform === 'linkedin') return 'border-[#0A66C2] bg-[#0A66C2] text-white'
+  return 'border-[#111111] bg-[#111111] text-white'
+}
+
+watch(
+  () => post.value?.status,
+  (status) => {
+    if (tiktokStatusTimer) {
+      window.clearInterval(tiktokStatusTimer)
+      tiktokStatusTimer = null
+    }
+
+    if (post.value?.platform === 'tiktok' && status === 'publishing') {
+      tiktokStatusTimer = window.setInterval(() => {
+        refreshTiktokStatus()
+      }, 10_000)
+    }
+  },
+  { immediate: true },
+)
+
+onBeforeUnmount(() => {
+  if (tiktokStatusTimer) {
+    window.clearInterval(tiktokStatusTimer)
+  }
+})
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-US', {
@@ -255,17 +385,14 @@ function formatDate(iso: string) {
               </p>
             </div>
             <div class="flex shrink-0 items-center gap-2">
-              <Badge
-                variant="outline"
-                :class="post.platform === 'twitter' ? 'border-black bg-black text-white' : 'border-[#0A66C2] bg-[#0A66C2] text-white'"
-              >{{ post.platform === 'twitter' ? 'X' : 'LinkedIn' }}</Badge>
+              <Badge variant="outline" :class="platformBadgeClass(post.platform)">{{ platformName(post.platform) }}</Badge>
               <Badge :variant="statusVariant(post.status)" class="capitalize">{{ post.status }}</Badge>
             </div>
           </div>
         </CardHeader>
         <CardContent class="space-y-4">
           <div>
-            <label class="mb-2 block text-sm font-medium">Content</label>
+            <label class="mb-2 block text-sm font-medium">{{ post.platform === 'tiktok' ? 'Caption' : 'Content' }}</label>
             <Textarea
               v-if="isEditable"
               v-model="editContent"
@@ -310,19 +437,128 @@ function formatDate(iso: string) {
               >
                 <Upload v-if="!uploadLoading" class="size-4" />
                 <span v-if="uploadLoading">Uploading...</span>
-                <span v-else>Upload image or video</span>
+                <span v-else>{{ post.platform === 'tiktok' ? 'Upload one MP4 video' : 'Upload image or video' }}</span>
                 <input
                   type="file"
                   class="hidden"
-                  accept="image/jpeg,image/png,image/gif,video/mp4"
+                  :accept="post.platform === 'tiktok' ? 'video/mp4' : 'image/jpeg,image/png,image/gif,video/mp4'"
                   @change="handleFileUpload"
                   :disabled="uploadLoading"
                 />
               </label>
               <p class="mt-1 text-xs text-muted-foreground/70">
-                JPG, PNG, GIF (max 5MB) or MP4 (max 100MB)
+                {{ post.platform === 'tiktok' ? 'MP4 only. TikTok supports one video per post.' : 'JPG, PNG, GIF (max 5MB) or MP4 (max 100MB)' }}
               </p>
             </div>
+          </div>
+
+          <div v-if="post.platform === 'tiktok'" class="space-y-4 rounded-lg border border-border/70 bg-muted/30 p-4">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <p class="text-sm font-medium">TikTok publish settings</p>
+                <p class="text-xs text-muted-foreground">
+                  TikTok direct post is private-only until your app passes TikTok audit. US proxy routing is best-effort only.
+                </p>
+              </div>
+              <Button v-if="isEditable" variant="outline" size="sm" @click="loadTiktokCreatorInfo(true)">
+                Refresh creator info
+              </Button>
+            </div>
+
+            <div v-if="tiktokCreatorInfo" class="flex items-center gap-3 rounded-lg border border-border/70 bg-background/80 p-3">
+              <img
+                v-if="tiktokCreatorInfo.creatorAvatarUrl"
+                :src="tiktokCreatorInfo.creatorAvatarUrl"
+                alt=""
+                class="size-12 rounded-full object-cover"
+              />
+              <div class="min-w-0">
+                <p class="truncate text-sm font-medium">{{ tiktokCreatorInfo.creatorNickname }}</p>
+                <p class="truncate text-xs text-muted-foreground">@{{ tiktokCreatorInfo.creatorUsername }}</p>
+                <p class="text-xs text-muted-foreground">
+                  Max duration: {{ tiktokCreatorInfo.maxVideoPostDurationSec }}s
+                </p>
+              </div>
+            </div>
+
+            <div v-if="tiktokSettings" class="grid gap-3 sm:grid-cols-2">
+              <label class="space-y-1 text-sm">
+                <span class="block font-medium">Privacy</span>
+                <select v-model="tiktokSettings.privacyLevel" class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm">
+                  <option v-for="option in tiktokCreatorInfo?.privacyLevelOptions ?? ['SELF_ONLY']" :key="option" :value="option">
+                    {{ option }}
+                  </option>
+                </select>
+              </label>
+              <label class="space-y-1 text-sm">
+                <span class="block font-medium">Cover timestamp (ms)</span>
+                <input
+                  v-model.number="tiktokSettings.videoCoverTimestampMs"
+                  type="number"
+                  min="0"
+                  class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                />
+              </label>
+            </div>
+
+            <div v-if="tiktokSettings" class="grid gap-2 sm:grid-cols-2">
+              <label class="flex items-center gap-2 text-sm">
+                <input v-model="tiktokSettings.allowComment" type="checkbox" :disabled="tiktokCreatorInfo?.commentDisabled" />
+                Allow comments
+              </label>
+              <label class="flex items-center gap-2 text-sm">
+                <input v-model="tiktokSettings.allowDuet" type="checkbox" :disabled="tiktokCreatorInfo?.duetDisabled" />
+                Allow duet
+              </label>
+              <label class="flex items-center gap-2 text-sm">
+                <input v-model="tiktokSettings.allowStitch" type="checkbox" :disabled="tiktokCreatorInfo?.stitchDisabled" />
+                Allow stitch
+              </label>
+              <label class="flex items-center gap-2 text-sm">
+                <input v-model="tiktokSettings.isAigc" type="checkbox" />
+                Mark as AI-generated content
+              </label>
+              <label class="flex items-center gap-2 text-sm">
+                <input v-model="tiktokSettings.brandContentToggle" type="checkbox" />
+                Branded content
+              </label>
+              <label class="flex items-center gap-2 text-sm">
+                <input v-model="tiktokSettings.brandOrganicToggle" type="checkbox" />
+                Brand organic
+              </label>
+            </div>
+
+            <label v-if="tiktokSettings" class="flex items-start gap-2 text-sm">
+              <input v-model="tiktokSettings.consentConfirmed" type="checkbox" class="mt-1" />
+              <span>I confirm this video is ready for TikTok, matches TikTok policy, and I want to submit it through the TikTok API.</span>
+            </label>
+
+            <div class="flex flex-wrap items-center gap-2">
+              <Button v-if="isEditable && tiktokSettings" variant="outline" size="sm" @click="saveTiktokSettings">
+                Save TikTok settings
+              </Button>
+              <Button
+                v-if="post.status === 'publishing'"
+                variant="outline"
+                size="sm"
+                @click="refreshTiktokStatus(true)"
+              >
+                Refresh TikTok status
+              </Button>
+            </div>
+
+            <p v-if="!tiktokCreatorInfo?.canPost" class="text-xs text-destructive">
+              This TikTok creator cannot currently publish through the API.
+            </p>
+            <p v-if="parsedTiktokState?.publishStatus" class="text-xs text-muted-foreground">
+              TikTok status: {{ parsedTiktokState.publishStatus }}
+            </p>
+            <p v-if="parsedTiktokState?.failReason" class="text-xs text-destructive">
+              {{ parsedTiktokState.failReason }}
+            </p>
+            <p v-if="tiktokProxy?.country === 'US'" class="text-xs text-muted-foreground">
+              Last verified proxy exit: {{ tiktokProxy.exitIp ?? 'unknown IP' }} (US)
+            </p>
           </div>
 
           <div class="text-xs text-muted-foreground">
@@ -357,13 +593,25 @@ function formatDate(iso: string) {
               >
                 Save changes
               </Button>
-              <Button @click="showPublishDialog = true" :disabled="actionLoading">Publish via API</Button>
+              <Button
+                v-if="post.platform === 'tiktok'"
+                @click="publish"
+                :disabled="actionLoading || !canPublishCurrentPost"
+              >
+                Publish to TikTok
+              </Button>
+              <Button v-else @click="showPublishDialog = true" :disabled="actionLoading">Publish via API</Button>
               <Button v-if="post.platform === 'twitter'" variant="outline" @click="openXComposer">
                 <ExternalLink class="mr-1.5 size-3.5" />
                 Post on X
               </Button>
               <Button variant="destructive" @click="reject" :disabled="actionLoading">Reject</Button>
               <Button variant="outline" @click="archivePost" :disabled="actionLoading">Archive</Button>
+            </template>
+
+            <template v-else-if="post.status === 'publishing'">
+              <p class="text-sm text-muted-foreground">TikTok publish is still processing.</p>
+              <Button variant="outline" @click="refreshTiktokStatus(true)" :disabled="actionLoading">Refresh status</Button>
             </template>
 
             <template v-else-if="post.status === 'rejected'">
@@ -385,7 +633,7 @@ function formatDate(iso: string) {
     </template>
 
     <!-- Publish confirmation dialog -->
-    <Dialog v-model:open="showPublishDialog">
+    <Dialog v-if="post?.platform !== 'tiktok'" v-model:open="showPublishDialog">
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Publish to {{ platformName(post?.platform ?? '') }}?</DialogTitle>

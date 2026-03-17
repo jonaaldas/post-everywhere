@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Github, Linkedin, Twitter, Check, X, Eye, EyeOff } from 'lucide-vue-next';
+import { Github, Linkedin, Twitter, Clapperboard, Check, X, Eye, EyeOff } from 'lucide-vue-next';
 import { toast } from 'vue-sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -157,11 +157,13 @@ async function disconnectSocial(platform: string) {
 const platformIcon: Record<string, any> = {
   twitter: Twitter, // lucide Twitter bird icon — close enough
   linkedin: Linkedin,
+  tiktok: Clapperboard,
 };
 
 const platformName: Record<string, string> = {
   twitter: 'X',
   linkedin: 'LinkedIn',
+  tiktok: 'TikTok',
 };
 
 // Check for ?connected= query param (OAuth callback redirect)

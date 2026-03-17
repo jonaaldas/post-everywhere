@@ -64,8 +64,8 @@ export type WatchedRepo = typeof watchedRepos.$inferSelect;
 
 // --- Phase 3: Posts ---
 
-export const postPlatforms = ['twitter', 'linkedin'] as const;
-export const postStatuses = ['pending', 'approved', 'posted', 'rejected', 'archived'] as const;
+export const postPlatforms = ['twitter', 'linkedin', 'tiktok'] as const;
+export const postStatuses = ['pending', 'approved', 'publishing', 'posted', 'rejected', 'archived'] as const;
 
 export const posts = sqliteTable('posts', {
   id: text('id').primaryKey(),
@@ -80,6 +80,13 @@ export const posts = sqliteTable('posts', {
   content: text('content').notNull(),
   status: text('status', { enum: postStatuses }).notNull().default('pending'),
   mediaUrls: text('media_urls'), // JSON string array, nullable
+  platformPostId: text('platform_post_id'),
+  platformPublishId: text('platform_publish_id'),
+  platformPublishStatus: text('platform_publish_status'),
+  platformPublishError: text('platform_publish_error'),
+  lastPlatformSyncAt: text('last_platform_sync_at'),
+  tiktokSettings: text('tiktok_settings'),
+  tiktokState: text('tiktok_state'),
   postedAt: text('posted_at'),
   createdAt: text('created_at')
     .notNull()
@@ -91,7 +98,7 @@ export type NewPost = typeof posts.$inferInsert;
 
 // --- Phase 4: Social Connections ---
 
-export const socialPlatforms = ['twitter', 'linkedin'] as const;
+export const socialPlatforms = ['twitter', 'linkedin', 'tiktok'] as const;
 
 export const socialConnections = sqliteTable('social_connections', {
   id: text('id').primaryKey(),
@@ -101,6 +108,7 @@ export const socialConnections = sqliteTable('social_connections', {
   platform: text('platform', { enum: socialPlatforms }).notNull(),
   accessToken: text('access_token').notNull(), // encrypted
   refreshToken: text('refresh_token'), // encrypted, nullable
+  refreshTokenExpiresAt: text('refresh_token_expires_at'),
   platformUserId: text('platform_user_id').notNull(),
   platformUsername: text('platform_username').notNull(),
   tokenExpiresAt: text('token_expires_at'),

@@ -12,9 +12,9 @@ interface Post {
   repoFullName: string
   prNumber: number
   prTitle: string
-  platform: 'twitter' | 'linkedin'
+  platform: 'twitter' | 'linkedin' | 'tiktok'
   content: string
-  status: 'pending' | 'approved' | 'posted' | 'rejected' | 'archived'
+  status: 'pending' | 'approved' | 'publishing' | 'posted' | 'rejected' | 'archived'
   mediaUrls: string | null
   postedAt: string | null
   createdAt: string
@@ -45,11 +45,12 @@ const draftPosts = computed(() => posts.value?.filter((p) => p.status !== 'poste
 const rejectedPosts = computed(() => posts.value?.filter((p) => p.status === 'rejected') ?? [])
 const publishedPosts = computed(() => posts.value?.filter((p) => p.status === 'posted') ?? [])
 
-const platformOptions = ['', 'twitter', 'linkedin']
+const platformOptions = ['', 'twitter', 'linkedin', 'tiktok']
 
 function statusVariant(status: string) {
   switch (status) {
     case 'posted': return 'default'
+    case 'publishing': return 'secondary'
     case 'approved': return 'secondary'
     case 'rejected': return 'destructive'
     default: return 'outline'
@@ -61,11 +62,15 @@ function formatDate(iso: string) {
 }
 
 function platformClass(platform: string) {
-  return platform === 'twitter' ? 'border-black bg-black text-white' : 'border-[#0A66C2] bg-[#0A66C2] text-white'
+  if (platform === 'twitter') return 'border-black bg-black text-white'
+  if (platform === 'linkedin') return 'border-[#0A66C2] bg-[#0A66C2] text-white'
+  return 'border-[#111111] bg-[#111111] text-white'
 }
 
 function platformLabel(platform: string) {
-  return platform === 'twitter' ? 'X' : 'LinkedIn'
+  if (platform === 'twitter') return 'X'
+  if (platform === 'linkedin') return 'LinkedIn'
+  return 'TikTok'
 }
 
 function hasMedia(post: Post) {
@@ -128,7 +133,7 @@ async function duplicatePost(e: Event, postId: string) {
       >
         <option value="">All platforms</option>
         <option v-for="p in platformOptions.slice(1)" :key="p" :value="p">
-          {{ p === 'twitter' ? 'X' : 'LinkedIn' }}
+          {{ p === 'twitter' ? 'X' : p === 'linkedin' ? 'LinkedIn' : 'TikTok' }}
         </option>
       </select>
     </div>

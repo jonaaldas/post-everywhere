@@ -10,6 +10,8 @@ const mockGetPost = vi.fn();
 const mockUpdatePostStatus = vi.fn();
 const mockUpdatePostContent = vi.fn();
 const mockUpdatePostMediaUrls = vi.fn();
+const mockUpdatePostTiktokSettings = vi.fn();
+const mockUpdatePostPlatformState = vi.fn();
 const mockDuplicatePost = vi.fn();
 
 vi.mock('../../db/posts/posts.js', () => ({
@@ -18,6 +20,8 @@ vi.mock('../../db/posts/posts.js', () => ({
   updatePostStatus: (...args: unknown[]) => mockUpdatePostStatus(...args),
   updatePostContent: (...args: unknown[]) => mockUpdatePostContent(...args),
   updatePostMediaUrls: (...args: unknown[]) => mockUpdatePostMediaUrls(...args),
+  updatePostTiktokSettings: (...args: unknown[]) => mockUpdatePostTiktokSettings(...args),
+  updatePostPlatformState: (...args: unknown[]) => mockUpdatePostPlatformState(...args),
   duplicatePost: (...args: unknown[]) => mockDuplicatePost(...args),
 }));
 
@@ -38,15 +42,26 @@ vi.mock('../../lib/crypto/crypto.js', () => ({
 }));
 
 const mockPublish = vi.fn();
+const mockSyncStatus = vi.fn();
 
 vi.mock('../../lib/publisher/index.js', () => ({
-  getPublisher: () => ({ publish: mockPublish }),
+  getPublisher: () => ({ publish: mockPublish, syncStatus: mockSyncStatus }),
 }));
 
 const mockRefreshAccessToken = vi.fn();
 
 vi.mock('../../lib/publisher/refresh.js', () => ({
   refreshAccessToken: (...args: unknown[]) => mockRefreshAccessToken(...args),
+}));
+
+const mockGetVideoDurationSeconds = vi.fn();
+vi.mock('../../lib/tiktok/video.js', () => ({
+  getVideoDurationSeconds: (...args: unknown[]) => mockGetVideoDurationSeconds(...args),
+}));
+
+const mockVerifyTiktokProxyEgress = vi.fn();
+vi.mock('../../lib/tiktok/proxy.js', () => ({
+  verifyTiktokProxyEgress: (...args: unknown[]) => mockVerifyTiktokProxyEgress(...args),
 }));
 
 import { posts } from './posts.js';
@@ -179,6 +194,37 @@ describe('PATCH /api/posts/:id', () => {
     });
     expect(res.status).toBe(400);
   });
+
+  it('updates tiktok settings', async () => {
+    mockGetPost.mockResolvedValue({ id: 'p1', userId: 'u1', status: 'pending', platform: 'tiktok' });
+    mockUpdatePostTiktokSettings.mockResolvedValue({
+      id: 'p1',
+      tiktokSettings: '{"privacyLevel":"SELF_ONLY","consentConfirmed":true}',
+    });
+    const app = createApp();
+    const res = await app.request('/api/posts/p1', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tiktokSettings: {
+          privacyLevel: 'SELF_ONLY',
+          allowComment: true,
+          allowDuet: true,
+          allowStitch: true,
+          videoCoverTimestampMs: null,
+          brandContentToggle: false,
+          brandOrganicToggle: false,
+          isAigc: true,
+          consentConfirmed: true,
+        },
+      }),
+    });
+    expect(res.status).toBe(200);
+    expect(mockUpdatePostTiktokSettings).toHaveBeenCalledWith(
+      'p1',
+      expect.objectContaining({ privacyLevel: 'SELF_ONLY' })
+    );
+  });
 });
 
 describe('POST /api/posts/:id/publish', () => {
@@ -219,7 +265,13 @@ describe('POST /api/posts/:id/publish', () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.status).toBe('posted');
-    expect(mockPublish).toHaveBeenCalledWith('Hello!', 'real-token', undefined);
+    expect(mockPublish).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: 'Hello!',
+        accessToken: 'real-token',
+        postId: 'p1',
+      })
+    );
     expect(mockUpdatePostStatus).toHaveBeenCalledWith('p1', 'posted');
   });
 
@@ -275,7 +327,12 @@ describe('POST /api/posts/:id/publish', () => {
     expect(res.status).toBe(200);
     expect(mockRefreshAccessToken).toHaveBeenCalledWith('twitter', 'refresh-tok');
     expect(mockUpdateSocialTokens).toHaveBeenCalled();
-    expect(mockPublish).toHaveBeenCalledWith('Hello!', 'new-access', undefined);
+    expect(mockPublish).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: 'Hello!',
+        accessToken: 'new-access',
+      })
+    );
   });
 
   it('retries with refreshed token on publish 401', async () => {
@@ -301,7 +358,12 @@ describe('POST /api/posts/:id/publish', () => {
     expect(res.status).toBe(200);
     expect(mockPublish).toHaveBeenCalledTimes(2);
     expect(mockRefreshAccessToken).toHaveBeenCalledWith('twitter', 'refresh-tok');
-    expect(mockPublish).toHaveBeenLastCalledWith('Hello!', 'refreshed-access', undefined);
+    expect(mockPublish).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        content: 'Hello!',
+        accessToken: 'refreshed-access',
+      })
+    );
   });
 
   it('returns 401 when refresh fails', async () => {
@@ -334,6 +396,126 @@ describe('POST /api/posts/:id/publish', () => {
     const app = createApp();
     const res = await app.request('/api/posts/p1/publish', { method: 'POST' });
     expect(res.status).toBe(401);
+  });
+
+  it('starts a TikTok publish and stores async platform state', async () => {
+    mockGetPost.mockResolvedValue({
+      id: 'p1',
+      userId: 'u1',
+      status: 'approved',
+      platform: 'tiktok',
+      content: 'Watch this',
+      mediaUrls: '["https://cdn.example.com/video.mp4"]',
+      tiktokSettings:
+        '{"privacyLevel":"SELF_ONLY","allowComment":true,"allowDuet":true,"allowStitch":true,"videoCoverTimestampMs":null,"brandContentToggle":false,"brandOrganicToggle":false,"isAigc":true,"consentConfirmed":true}',
+      tiktokState:
+        '{"creatorInfo":{"creatorUsername":"creator","creatorNickname":"Creator","creatorAvatarUrl":"https://avatar.test","privacyLevelOptions":["SELF_ONLY"],"commentDisabled":false,"duetDisabled":false,"stitchDisabled":false,"maxVideoPostDurationSec":600,"canPost":true,"fetchedAt":"2026-03-17T10:00:00Z"},"publishId":null,"publishStatus":null,"failReason":null,"proxy":null}',
+    });
+    mockGetSocialConnection.mockResolvedValue({ accessToken: 'enc:tt-token', tokenExpiresAt: null });
+    mockVerifyTiktokProxyEgress.mockResolvedValue({
+      provider: 'evomi',
+      country: 'US',
+      sessionId: 'sess-1',
+      exitIp: '1.2.3.4',
+      verifiedAt: '2026-03-17T10:00:00Z',
+    });
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      headers: { get: () => 'video/mp4' },
+      arrayBuffer: async () => Buffer.from('video'),
+    }) as any;
+    mockGetVideoDurationSeconds.mockResolvedValue(42);
+    mockPublish.mockResolvedValue({
+      success: true,
+      state: 'publishing',
+      platformPublishId: 'pub-123',
+      platformStatus: 'PROCESSING_UPLOAD',
+      tiktokState: {
+        creatorInfo: {
+          creatorUsername: 'creator',
+          creatorNickname: 'Creator',
+          creatorAvatarUrl: 'https://avatar.test',
+          privacyLevelOptions: ['SELF_ONLY'],
+          commentDisabled: false,
+          duetDisabled: false,
+          stitchDisabled: false,
+          maxVideoPostDurationSec: 600,
+          canPost: true,
+          fetchedAt: '2026-03-17T10:00:00Z',
+        },
+        publishId: 'pub-123',
+        publishStatus: 'PROCESSING_UPLOAD',
+        failReason: null,
+        proxy: null,
+      },
+    });
+    mockUpdatePostPlatformState.mockResolvedValue({ id: 'p1', status: 'publishing' });
+
+    const app = createApp();
+    const res = await app.request('/api/posts/p1/publish', { method: 'POST' });
+
+    expect(res.status).toBe(200);
+    expect(mockVerifyTiktokProxyEgress).toHaveBeenCalled();
+    expect(mockUpdatePostPlatformState).toHaveBeenCalledWith(
+      'p1',
+      expect.objectContaining({
+        status: 'publishing',
+        platformPublishId: 'pub-123',
+        platformPublishStatus: 'PROCESSING_UPLOAD',
+      })
+    );
+  });
+});
+
+describe('POST /api/posts/:id/refresh-status', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('syncs TikTok publish status to posted', async () => {
+    mockGetPost.mockResolvedValue({
+      id: 'p1',
+      userId: 'u1',
+      platform: 'tiktok',
+      platformPublishId: 'pub-123',
+      platformPublishStatus: 'PROCESSING_UPLOAD',
+      tiktokState:
+        '{"creatorInfo":{"creatorUsername":"creator","creatorNickname":"Creator","creatorAvatarUrl":"https://avatar.test","privacyLevelOptions":["SELF_ONLY"],"commentDisabled":false,"duetDisabled":false,"stitchDisabled":false,"maxVideoPostDurationSec":600,"canPost":true,"fetchedAt":"2026-03-17T10:00:00Z"},"publishId":"pub-123","publishStatus":"PROCESSING_UPLOAD","failReason":null,"proxy":null}',
+      userId: 'u1',
+    });
+    mockGetSocialConnection.mockResolvedValue({ accessToken: 'enc:tt-token' });
+    mockVerifyTiktokProxyEgress.mockResolvedValue({
+      provider: 'evomi',
+      country: 'US',
+      sessionId: 'sess-2',
+      exitIp: '1.2.3.4',
+      verifiedAt: '2026-03-17T10:00:00Z',
+    });
+    mockSyncStatus.mockResolvedValue({
+      success: true,
+      state: 'posted',
+      platformPostId: 'video-123',
+      platformPublishId: 'pub-123',
+      platformStatus: 'PUBLISH_COMPLETE',
+    });
+    mockUpdatePostPlatformState.mockResolvedValue({ id: 'p1', status: 'posted' });
+
+    const app = createApp();
+    const res = await app.request('/api/posts/p1/refresh-status', { method: 'POST' });
+
+    expect(res.status).toBe(200);
+    expect(mockSyncStatus).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accessToken: 'tt-token',
+        platformPublishId: 'pub-123',
+      })
+    );
+    expect(mockUpdatePostPlatformState).toHaveBeenCalledWith(
+      'p1',
+      expect.objectContaining({
+        status: 'posted',
+        platformPostId: 'video-123',
+        platformPublishStatus: 'PUBLISH_COMPLETE',
+      })
+    );
   });
 });
 
