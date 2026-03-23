@@ -8,6 +8,16 @@ import { refreshAccessToken } from '../../../../src/lib/publisher/refresh.js'
 import { requireUser } from '../../../utils/auth.js'
 import { jsonError } from '../../../utils/http.js'
 
+function getFilenameFromUrl(url: string): string | undefined {
+  try {
+    const pathname = new URL(url).pathname
+    const filename = pathname.split('/').pop()
+    return filename ? decodeURIComponent(filename) : undefined
+  } catch {
+    return undefined
+  }
+}
+
 export default defineEventHandler(async (event) => {
   const user = requireUser(event)
   const post = await getPost(getRouterParam(event, 'id') ?? '')
@@ -54,7 +64,7 @@ export default defineEventHandler(async (event) => {
           const buffer = Buffer.from(await res.arrayBuffer())
           const mimeType = res.headers.get('content-type') ?? 'image/jpeg'
           const type = mimeType.startsWith('video/') ? 'video' : 'image'
-          mediaItems.push({ url, buffer, mimeType, type })
+          mediaItems.push({ url, buffer, mimeType, type, filename: getFilenameFromUrl(url) })
         }
       }
     } catch {
@@ -74,6 +84,11 @@ export default defineEventHandler(async (event) => {
   }
 
   if (!result.success) {
+    if (result.statusCode) {
+      return jsonError(event, result.statusCode, result.error ?? 'Publishing failed', {
+        retryable: result.retryable ?? false,
+      })
+    }
     if (result.error?.toLowerCase().includes('rate limit')) {
       return jsonError(event, 429, result.error)
     }

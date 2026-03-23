@@ -83,6 +83,35 @@ function isVideo(url: string) {
   return url.match(/\.mp4$/i)
 }
 
+const isLinkedInPost = computed(() => post.value?.platform === 'linkedin')
+const hasVideoMedia = computed(() => mediaUrls.value.some((url) => isVideo(url)))
+const hasImageMedia = computed(() => mediaUrls.value.some((url) => !isVideo(url)))
+
+function getLinkedInUploadError(file: File) {
+  if (!isLinkedInPost.value) return null
+
+  const isVideoFile = file.type === 'video/mp4'
+  const isImageFile = ['image/jpeg', 'image/png', 'image/gif'].includes(file.type)
+
+  if (!isVideoFile && !isImageFile) {
+    return 'LinkedIn supports JPG, PNG, GIF, or MP4 uploads'
+  }
+  if (isVideoFile && hasVideoMedia.value) {
+    return 'LinkedIn posts support exactly one video'
+  }
+  if (isVideoFile && hasImageMedia.value) {
+    return 'LinkedIn posts cannot mix images and videos'
+  }
+  if (isImageFile && hasVideoMedia.value) {
+    return 'Remove the video before adding LinkedIn images'
+  }
+  if (isImageFile && mediaUrls.value.length >= 20) {
+    return 'LinkedIn posts support up to 20 images'
+  }
+
+  return null
+}
+
 async function updatePost(updates: { content?: string; status?: string; mediaUrls?: string[] }) {
   actionLoading.value = true
   try {
@@ -113,6 +142,13 @@ async function handleFileUpload(event: Event) {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
   if (!file) return
+
+  const linkedInUploadError = getLinkedInUploadError(file)
+  if (linkedInUploadError) {
+    toast.error(linkedInUploadError)
+    input.value = ''
+    return
+  }
 
   uploadLoading.value = true
   try {
@@ -152,10 +188,12 @@ async function publish() {
     const status = e.status || e.statusCode
     if (status === 401) {
       toast.error('Please reconnect your social account in Settings')
+    } else if (status === 409) {
+      toast.error(e.data?.error || 'LinkedIn is still processing the video. Try again shortly.')
     } else if (status === 429) {
       toast.error('Rate limited. Please try again later.')
     } else {
-      toast.error(e.data?.message || 'Failed to publish')
+      toast.error(e.data?.error || e.data?.message || 'Failed to publish')
     }
   } finally {
     actionLoading.value = false
@@ -325,6 +363,9 @@ function formatDate(iso: string) {
               </label>
               <p class="mt-1 text-xs text-muted-foreground/70">
                 JPG, PNG, GIF (max 5MB) or MP4 (max 100MB)
+              </p>
+              <p v-if="post.platform === 'linkedin'" class="text-xs text-muted-foreground/70">
+                LinkedIn supports up to 20 images or exactly 1 MP4 video. Mixed image and video posts are not allowed.
               </p>
             </div>
           </div>

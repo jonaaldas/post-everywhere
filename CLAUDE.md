@@ -84,6 +84,12 @@ Follow strict TDD for every phase/feature:
 
 Update this section every time you finish a batch of work. Include date, what changed, and files touched.
 
+### 2026-03-23
+
+**Repo maintenance**
+- Rebased feature branch onto `main` to pick up the PR preview deployment workflow
+- Added a doc-only change so the branch can be pushed and opened as a PR for workflow verification
+
 ### 2026-03-16
 
 **Media Upload + Publishing**
