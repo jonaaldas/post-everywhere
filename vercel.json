@@ -1,12 +1,13 @@
 {
   "installCommand": "pnpm install",
   "buildCommand": "pnpm build",
+  "outputDirectory": "public",
   "routes": [
     {
       "handle": "filesystem"
     },
     {
-      "src": "/(.*)",
+      "src": "/((?!api(?:/|$)).*)",
       "dest": "/index.html"
     }
   ]
