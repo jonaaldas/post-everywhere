@@ -39,7 +39,7 @@ export const env = {
   twitterClientSecret: process.env.TWITTER_CLIENT_SECRET?.trim() ?? '',
   linkedinClientId: process.env.LINKEDIN_CLIENT_ID?.trim() ?? '',
   linkedinClientSecret: process.env.LINKEDIN_CLIENT_SECRET?.trim() ?? '',
-  redisUrl: process.env.REDIS_URL?.trim() ?? 'redis://localhost:6379',
+  redisUrl: process.env.REDIS_URL ?? process.env.REDIS_URL?.trim(),
   // R2 media storage (optional — feature disabled when absent)
   r2AccountId: process.env.R2_ACCOUNT_ID?.trim() ?? '',
   r2AccessKeyId: process.env.R2_ACCESS_KEY_ID?.trim() ?? '',
