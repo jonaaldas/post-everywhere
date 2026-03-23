@@ -4,7 +4,7 @@ import type { Publisher, PublishResult, MediaItem } from './types.js';
 
 async function uploadMediaToX(accessToken: string, item: MediaItem): Promise<string> {
   const formData = new FormData();
-  formData.append('media', new Blob([item.buffer], { type: item.mimeType }));
+  formData.append('media', new Blob([new Uint8Array(item.buffer)], { type: item.mimeType }));
   formData.append('media_category', 'tweet_image');
   formData.append('media_type', item.mimeType);
 

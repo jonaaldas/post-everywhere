@@ -53,7 +53,7 @@ async function uploadImageToLinkedIn(
       Authorization: `Bearer ${accessToken}`,
       'Content-Type': item.mimeType,
     },
-    body: item.buffer,
+    body: new Uint8Array(item.buffer),
   });
 
   if (!uploadRes.ok) {

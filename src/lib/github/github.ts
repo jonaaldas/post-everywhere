@@ -18,7 +18,7 @@ export async function listUserRepos(pat: string) {
     sort: 'updated',
     per_page: 100,
   });
-  return repos.map((r) => ({
+  return repos.map((r: Awaited<ReturnType<typeof octokit.rest.repos.listForAuthenticatedUser>>['data'][number]) => ({
     fullName: r.full_name,
     name: r.name,
     private: r.private,
@@ -48,7 +48,7 @@ export async function createWebhook(pat: string, owner: string, repo: string) {
     // 422 = webhook with same URL already exists — find and reuse it
     if (err.status === 422) {
       const { data: hooks } = await octokit.rest.repos.listWebhooks({ owner, repo });
-      const existing = hooks.find((h) => h.config.url === webhookUrl);
+      const existing = hooks.find((h: (typeof hooks)[number]) => h.config?.url === webhookUrl);
       if (existing) {
         return { webhookId: String(existing.id) };
       }

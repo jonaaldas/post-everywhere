@@ -14,3 +14,5 @@ apps/*/.env.*
 .vercel
 api/index.js
 public/
+.nuxt
+.output
