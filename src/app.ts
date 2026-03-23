@@ -16,6 +16,14 @@ const app = new Hono();
 
 app.use('/api/*', cors());
 
+// Protected auth session check must be registered before the broader /api/auth router.
+app.use('/api/auth/me', cookieToAuth);
+app.use('/api/auth/me', jwtAuth);
+app.get('/api/auth/me', (c) => {
+  const payload = c.get('jwtPayload') as { sub: string; email: string };
+  return c.json({ user: { id: payload.sub, email: payload.email } });
+});
+
 // Public routes (no auth)
 app.route('/api/auth', auth);
 app.route('/api/webhooks', webhooks);
@@ -37,11 +45,6 @@ app.get('/api/status', async (c) => {
 // Protected routes — everything below requires JWT
 app.use('/api/*', cookieToAuth);
 app.use('/api/*', jwtAuth);
-
-app.get('/api/auth/me', (c) => {
-  const payload = c.get('jwtPayload') as { sub: string; email: string };
-  return c.json({ user: { id: payload.sub, email: payload.email } });
-});
 
 app.route('/api/github', github);
 app.route('/api/posts', postsRoutes);
