@@ -1,16 +1,8 @@
-import 'dotenv/config';
-
-import { existsSync } from 'node:fs';
-import { resolve } from 'node:path';
-
-import { serve } from '@hono/node-server';
-import { serveStatic } from '@hono/node-server/serve-static';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 
 import { listChannels } from './db/channels/channels.js';
 import { pingDatabase } from './db/client/client.js';
-import { env } from './env.js';
 import { cookieToAuth, jwtAuth } from './middleware/auth/auth.js';
 import { auth } from './routes/auth/auth.js';
 import { github } from './routes/github/github.js';
@@ -73,25 +65,4 @@ app.get('/api/channels', async (c) => {
   }
 });
 
-// In production, serve the Vue SPA static files
-const webDistPath = resolve(import.meta.dirname, '../../../apps/web/dist');
-
-if (existsSync(webDistPath)) {
-  app.use('*', serveStatic({ root: webDistPath }));
-  // SPA fallback — serve index.html for client-side routing
-  app.get('*', serveStatic({ root: webDistPath, path: '/index.html' }));
-} else {
-  app.get('/', (c) => c.text('Post Everywhere API'));
-}
-
-const port = env.port || 8787;
-
-serve(
-  {
-    fetch: app.fetch,
-    port,
-  },
-  (info) => {
-    console.log(`API listening on http://localhost:${info.port}`);
-  }
-);
+export default app;

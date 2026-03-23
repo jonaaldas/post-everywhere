@@ -11,3 +11,6 @@ apps/*/dist
 apps/*/.env
 apps/*/.env.*
 !apps/*/.env.example
+.vercel
+api/index.js
+public/
